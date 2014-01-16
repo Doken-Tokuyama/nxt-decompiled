@@ -3,10 +3,12 @@ import org.json.simple.JSONObject;
 class Nxt$5
   implements Runnable
 {
-  private final JSONObject getUnconfirmedTransactionsRequest = new JSONObject();
+  private final JSONObject getUnconfirmedTransactionsRequest;
   
   Nxt$5(Nxt paramNxt)
   {
+    this.getUnconfirmedTransactionsRequest = new JSONObject();
+    
     this.getUnconfirmedTransactionsRequest.put("requestType", "getUnconfirmedTransactions");
   }
   
@@ -14,14 +16,17 @@ class Nxt$5
   {
     try
     {
-      Nxt.Peer localPeer = Nxt.Peer.getAnyPeer(1, true);
-      if (localPeer != null)
+      Nxt.Peer peer = Nxt.Peer.getAnyPeer(1, true);
+      if (peer != null)
       {
-        JSONObject localJSONObject = localPeer.send(this.getUnconfirmedTransactionsRequest);
-        if (localJSONObject != null) {
-          Nxt.Transaction.processTransactions(localJSONObject, "unconfirmedTransactions");
+        JSONObject response = peer.send(this.getUnconfirmedTransactionsRequest);
+        if (response != null) {
+          Nxt.Transaction.processTransactions(response, "unconfirmedTransactions");
         }
       }
     }
-    catch (Exception localException) {}
-  }
+    catch (Exception e)
+    {
+      Nxt.logDebugMessage("Error processing unconfirmed transactions from peer", e);
+    }
+    catch (Throwable t)

@@ -9,9 +9,3 @@ class Nxt$Block$1
   private char[] jsonChars = this.this$0.getJSONObject(Nxt.transactions).toJSONString().toCharArray();
   
   Nxt$Block$1(Nxt.Block paramBlock) {}
-  
-  public void writeJSONString(Writer paramWriter)
-    throws IOException
-  {
-    paramWriter.write(this.jsonChars);
-  }

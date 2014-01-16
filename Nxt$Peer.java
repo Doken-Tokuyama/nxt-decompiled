@@ -1,23 +1,32 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.NoRouteToHostException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.simple.JSONArray;
@@ -46,204 +55,209 @@ class Nxt$Peer
   long downloadedVolume;
   long uploadedVolume;
   
-  Nxt$Peer(String paramString, int paramInt)
+  Nxt$Peer(String announcedAddress, int index)
   {
-    this.announcedAddress = paramString;
-    this.index = paramInt;
+    this.announcedAddress = announcedAddress;
+    this.index = index;
   }
   
-  static Peer addPeer(String paramString1, String paramString2)
+  static Peer addPeer(String address, String announcedAddress)
   {
     try
     {
-      new URL("http://" + paramString1);
+      new URL("http://" + address);
     }
-    catch (Exception localException1)
+    catch (MalformedURLException e)
     {
+      Nxt.logDebugMessage("malformed peer address " + address, e);
       return null;
     }
     try
     {
-      new URL("http://" + paramString2);
+      new URL("http://" + announcedAddress);
     }
-    catch (Exception localException2)
+    catch (MalformedURLException e)
     {
-      paramString2 = "";
+      Nxt.logDebugMessage("malformed peer announced address " + announcedAddress, e);
+      announcedAddress = "";
     }
-    if ((paramString1.equals("localhost")) || (paramString1.equals("127.0.0.1")) || (paramString1.equals("0:0:0:0:0:0:0:1"))) {
+    if ((address.equals("localhost")) || (address.equals("127.0.0.1")) || (address.equals("0:0:0:0:0:0:0:1"))) {
       return null;
     }
-    if ((Nxt.myAddress != null) && (Nxt.myAddress.length() > 0) && (Nxt.myAddress.equals(paramString2))) {
+    if ((Nxt.myAddress != null) && (Nxt.myAddress.length() > 0) && (Nxt.myAddress.equals(announcedAddress))) {
       return null;
     }
-    Peer localPeer = (Peer)Nxt.peers.get(paramString2.length() > 0 ? paramString2 : paramString1);
-    if (localPeer == null)
+    Peer peer = (Peer)Nxt.peers.get(announcedAddress.length() > 0 ? announcedAddress : address);
+    if (peer == null)
     {
-      localPeer = new Peer(paramString2, Nxt.peerCounter.incrementAndGet());
-      Nxt.peers.put(paramString2.length() > 0 ? paramString2 : paramString1, localPeer);
+      peer = new Peer(announcedAddress, Nxt.peerCounter.incrementAndGet());
+      Nxt.peers.put(announcedAddress.length() > 0 ? announcedAddress : address, peer);
     }
-    return localPeer;
+    return peer;
   }
   
-  boolean analyzeHallmark(String paramString1, String paramString2)
+  boolean analyzeHallmark(String realHost, String hallmark)
   {
-    if (paramString2 == null) {
+    if (hallmark == null) {
       return true;
     }
     try
     {
-      byte[] arrayOfByte1 = Nxt.convert(paramString2);
-      ByteBuffer localByteBuffer = ByteBuffer.wrap(arrayOfByte1);
-      localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      byte[] arrayOfByte2 = new byte[32];
-      localByteBuffer.get(arrayOfByte2);
-      int i = localByteBuffer.getShort();
-      byte[] arrayOfByte3 = new byte[i];
-      localByteBuffer.get(arrayOfByte3);
-      String str = new String(arrayOfByte3, "UTF-8");
-      if ((str.length() > 100) || (!str.equals(paramString1))) {
-        return false;
-      }
-      int j = localByteBuffer.getInt();
-      if ((j <= 0) || (j > 1000000000L)) {
-        return false;
-      }
-      int k = localByteBuffer.getInt();
-      localByteBuffer.get();
-      byte[] arrayOfByte4 = new byte[64];
-      localByteBuffer.get(arrayOfByte4);
-      byte[] arrayOfByte5 = new byte[arrayOfByte1.length - 64];
-      System.arraycopy(arrayOfByte1, 0, arrayOfByte5, 0, arrayOfByte5.length);
-      if (Nxt.Crypto.verify(arrayOfByte4, arrayOfByte5, arrayOfByte2))
+      byte[] hallmarkBytes;
+      try
       {
-        this.hallmark = paramString2;
-        long l1 = Nxt.Account.getId(arrayOfByte2);
-        LinkedList localLinkedList = new LinkedList();
-        int m = 0;
-        this.accountId = l1;
-        this.weight = j;
-        this.date = k;
-        Iterator localIterator1 = Nxt.peers.values().iterator();
-        while (localIterator1.hasNext())
-        {
-          Peer localPeer1 = (Peer)localIterator1.next();
-          if (localPeer1.accountId == l1)
+        hallmarkBytes = Nxt.convert(hallmark);
+      }
+      catch (NumberFormatException e)
+      {
+        return false;
+      }
+      ByteBuffer buffer = ByteBuffer.wrap(hallmarkBytes);
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+      
+      byte[] publicKey = new byte[32];
+      buffer.get(publicKey);
+      int hostLength = buffer.getShort();
+      byte[] hostBytes = new byte[hostLength];
+      buffer.get(hostBytes);
+      String host = new String(hostBytes, "UTF-8");
+      if ((host.length() > 100) || (!host.equals(realHost))) {
+        return false;
+      }
+      int weight = buffer.getInt();
+      if ((weight <= 0) || (weight > 1000000000L)) {
+        return false;
+      }
+      int date = buffer.getInt();
+      buffer.get();
+      byte[] signature = new byte[64];
+      buffer.get(signature);
+      
+      byte[] data = new byte[hallmarkBytes.length - 64];
+      System.arraycopy(hallmarkBytes, 0, data, 0, data.length);
+      if (Nxt.Crypto.verify(signature, data, publicKey))
+      {
+        this.hallmark = hallmark;
+        
+        long accountId = Nxt.Account.getId(publicKey);
+        
+
+
+
+
+
+
+
+        LinkedList<Peer> groupedPeers = new LinkedList();
+        int validDate = 0;
+        
+        this.accountId = accountId;
+        this.weight = weight;
+        this.date = date;
+        for (Peer peer : Nxt.peers.values()) {
+          if (peer.accountId == accountId)
           {
-            localLinkedList.add(localPeer1);
-            if (localPeer1.date > m) {
-              m = localPeer1.date;
+            groupedPeers.add(peer);
+            if (peer.date > validDate) {
+              validDate = peer.date;
             }
           }
         }
-        long l2 = 0L;
-        Iterator localIterator2 = localLinkedList.iterator();
-        Peer localPeer2;
-        while (localIterator2.hasNext())
-        {
-          localPeer2 = (Peer)localIterator2.next();
-          if (localPeer2.date == m)
+        long totalWeight = 0L;
+        for (Peer peer : groupedPeers) {
+          if (peer.date == validDate)
           {
-            l2 += localPeer2.weight;
+            totalWeight += peer.weight;
           }
           else
           {
-            localPeer2.adjustedWeight = 0L;
-            localPeer2.updateWeight();
+            peer.adjustedWeight = 0L;
+            peer.updateWeight();
           }
         }
-        localIterator2 = localLinkedList.iterator();
-        while (localIterator2.hasNext())
+        for (Peer peer : groupedPeers)
         {
-          localPeer2 = (Peer)localIterator2.next();
-          localPeer2.adjustedWeight = (1000000000L * localPeer2.weight / l2);
-          localPeer2.updateWeight();
+          peer.adjustedWeight = (1000000000L * peer.weight / totalWeight);
+          peer.updateWeight();
         }
         return true;
       }
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logDebugMessage("Failed to analyze hallmark for peer " + realHost, e);
+    }
     return false;
   }
   
   void blacklist()
   {
     this.blacklistingTime = System.currentTimeMillis();
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray1 = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONArray1.add(localJSONObject2);
-    localJSONObject1.put("removedKnownPeers", localJSONArray1);
-    JSONArray localJSONArray2 = new JSONArray();
-    JSONObject localJSONObject3 = new JSONObject();
-    localJSONObject3.put("index", Integer.valueOf(this.index));
-    localJSONObject3.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
-    Iterator localIterator = Nxt.wellKnownPeers.iterator();
-    Object localObject;
-    while (localIterator.hasNext())
-    {
-      localObject = (String)localIterator.next();
-      if (this.announcedAddress.equals(localObject))
+    
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray removedKnownPeers = new JSONArray();
+    JSONObject removedKnownPeer = new JSONObject();
+    removedKnownPeer.put("index", Integer.valueOf(this.index));
+    removedKnownPeers.add(removedKnownPeer);
+    response.put("removedKnownPeers", removedKnownPeers);
+    
+    JSONArray addedBlacklistedPeers = new JSONArray();
+    JSONObject addedBlacklistedPeer = new JSONObject();
+    addedBlacklistedPeer.put("index", Integer.valueOf(this.index));
+    addedBlacklistedPeer.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
+    for (String wellKnownPeer : Nxt.wellKnownPeers) {
+      if (this.announcedAddress.equals(wellKnownPeer))
       {
-        localJSONObject3.put("wellKnown", Boolean.valueOf(true));
+        addedBlacklistedPeer.put("wellKnown", Boolean.valueOf(true));
+        
         break;
       }
     }
-    localJSONArray2.add(localJSONObject3);
-    localJSONObject1.put("addedBlacklistedPeers", localJSONArray2);
-    localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      localObject = (Nxt.User)localIterator.next();
-      ((Nxt.User)localObject).send(localJSONObject1);
+    addedBlacklistedPeers.add(addedBlacklistedPeer);
+    response.put("addedBlacklistedPeers", addedBlacklistedPeers);
+    for (Nxt.User user : Nxt.users.values()) {
+      user.send(response);
     }
   }
   
-  public int compareTo(Peer paramPeer)
+  public int compareTo(Peer o)
   {
-    long l1 = getWeight();
-    long l2 = paramPeer.getWeight();
-    if (l1 > l2) {
+    long weight = getWeight();long weight2 = o.getWeight();
+    if (weight > weight2) {
       return -1;
     }
-    if (l1 < l2) {
+    if (weight < weight2) {
       return 1;
     }
-    return this.index - paramPeer.index;
+    return this.index - o.index;
   }
   
   void connect()
   {
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("requestType", "getInfo");
+    JSONObject request = new JSONObject();
+    request.put("requestType", "getInfo");
     if ((Nxt.myAddress != null) && (Nxt.myAddress.length() > 0)) {
-      localJSONObject1.put("announcedAddress", Nxt.myAddress);
+      request.put("announcedAddress", Nxt.myAddress);
     }
     if ((Nxt.myHallmark != null) && (Nxt.myHallmark.length() > 0)) {
-      localJSONObject1.put("hallmark", Nxt.myHallmark);
+      request.put("hallmark", Nxt.myHallmark);
     }
-    localJSONObject1.put("application", "NRS");
-    localJSONObject1.put("version", "0.5.5");
-    localJSONObject1.put("platform", Nxt.myPlatform);
-    localJSONObject1.put("scheme", Nxt.myScheme);
-    localJSONObject1.put("port", Integer.valueOf(Nxt.myPort));
-    localJSONObject1.put("shareAddress", Boolean.valueOf(Nxt.shareMyAddress));
-    JSONObject localJSONObject2 = send(localJSONObject1);
-    if (localJSONObject2 != null)
+    request.put("application", "NRS");
+    request.put("version", "0.5.7");
+    request.put("platform", Nxt.myPlatform);
+    request.put("scheme", Nxt.myScheme);
+    request.put("port", Integer.valueOf(Nxt.myPort));
+    request.put("shareAddress", Boolean.valueOf(Nxt.shareMyAddress));
+    JSONObject response = send(request);
+    if (response != null)
     {
-      this.application = ((String)localJSONObject2.get("application"));
-      this.version = ((String)localJSONObject2.get("version"));
-      this.platform = ((String)localJSONObject2.get("platform"));
-      try
-      {
-        this.shareAddress = Boolean.parseBoolean((String)localJSONObject2.get("shareAddress"));
-      }
-      catch (Exception localException)
-      {
-        this.shareAddress = true;
-      }
-      if (analyzeHallmark(this.announcedAddress, (String)localJSONObject2.get("hallmark"))) {
+      this.application = ((String)response.get("application"));
+      this.version = ((String)response.get("version"));
+      this.platform = ((String)response.get("platform"));
+      this.shareAddress = Boolean.TRUE.equals(response.get("shareAddress"));
+      if (analyzeHallmark(this.announcedAddress, (String)response.get("hallmark"))) {
         setState(1);
       }
     }
@@ -255,38 +269,34 @@ class Nxt$Peer
       disconnect();
     }
     setState(0);
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONArray.add(localJSONObject2);
-    localJSONObject1.put("removedActivePeers", localJSONArray);
-    Object localObject2;
+    
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray removedActivePeers = new JSONArray();
+    JSONObject removedActivePeer = new JSONObject();
+    removedActivePeer.put("index", Integer.valueOf(this.index));
+    removedActivePeers.add(removedActivePeer);
+    response.put("removedActivePeers", removedActivePeers);
     if (this.announcedAddress.length() > 0)
     {
-      localObject1 = new JSONArray();
-      localObject2 = new JSONObject();
-      ((JSONObject)localObject2).put("index", Integer.valueOf(this.index));
-      ((JSONObject)localObject2).put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
-      Iterator localIterator = Nxt.wellKnownPeers.iterator();
-      while (localIterator.hasNext())
-      {
-        String str = (String)localIterator.next();
-        if (this.announcedAddress.equals(str))
+      JSONArray addedKnownPeers = new JSONArray();
+      JSONObject addedKnownPeer = new JSONObject();
+      addedKnownPeer.put("index", Integer.valueOf(this.index));
+      addedKnownPeer.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
+      for (String wellKnownPeer : Nxt.wellKnownPeers) {
+        if (this.announcedAddress.equals(wellKnownPeer))
         {
-          ((JSONObject)localObject2).put("wellKnown", Boolean.valueOf(true));
+          addedKnownPeer.put("wellKnown", Boolean.valueOf(true));
+          
           break;
         }
       }
-      ((JSONArray)localObject1).add(localObject2);
-      localJSONObject1.put("addedKnownPeers", localObject1);
+      addedKnownPeers.add(addedKnownPeer);
+      response.put("addedKnownPeers", addedKnownPeers);
     }
-    Object localObject1 = Nxt.users.values().iterator();
-    while (((Iterator)localObject1).hasNext())
-    {
-      localObject2 = (Nxt.User)((Iterator)localObject1).next();
-      ((Nxt.User)localObject2).send(localJSONObject1);
+    for (Nxt.User user : Nxt.users.values()) {
+      user.send(response);
     }
   }
   
@@ -295,41 +305,35 @@ class Nxt$Peer
     setState(2);
   }
   
-  static Peer getAnyPeer(int paramInt, boolean paramBoolean)
+  static Peer getAnyPeer(int state, boolean applyPullThreshold)
   {
-    ArrayList localArrayList = new ArrayList();
-    Iterator localIterator1 = Nxt.peers.values().iterator();
-    while (localIterator1.hasNext())
-    {
-      Peer localPeer1 = (Peer)localIterator1.next();
-      if ((localPeer1.blacklistingTime <= 0L) && (localPeer1.state == paramInt) && (localPeer1.announcedAddress.length() > 0) && ((!paramBoolean) || (!Nxt.enableHallmarkProtection) || (localPeer1.getWeight() >= Nxt.pullThreshold))) {
-        localArrayList.add(localPeer1);
+    List<Peer> selectedPeers = new ArrayList();
+    for (Peer peer : Nxt.peers.values()) {
+      if ((peer.blacklistingTime <= 0L) && (peer.state == state) && (peer.announcedAddress.length() > 0) && ((!applyPullThreshold) || (!Nxt.enableHallmarkProtection) || (peer.getWeight() >= Nxt.pullThreshold))) {
+        selectedPeers.add(peer);
       }
     }
-    if (localArrayList.size() > 0)
+    long hit;
+    if (selectedPeers.size() > 0)
     {
-      long l1 = 0L;
-      Iterator localIterator2 = localArrayList.iterator();
-      while (localIterator2.hasNext())
+      long totalWeight = 0L;
+      for (Peer peer : selectedPeers)
       {
-        Peer localPeer2 = (Peer)localIterator2.next();
-        long l3 = localPeer2.getWeight();
-        if (l3 == 0L) {
-          l3 = 1L;
+        long weight = peer.getWeight();
+        if (weight == 0L) {
+          weight = 1L;
         }
-        l1 += l3;
+        totalWeight += weight;
       }
-      long l2 = ThreadLocalRandom.current().nextLong(l1);
-      Iterator localIterator3 = localArrayList.iterator();
-      while (localIterator3.hasNext())
+      hit = ThreadLocalRandom.current().nextLong(totalWeight);
+      for (Peer peer : selectedPeers)
       {
-        Peer localPeer3 = (Peer)localIterator3.next();
-        long l4 = localPeer3.getWeight();
-        if (l4 == 0L) {
-          l4 = 1L;
+        long weight = peer.getWeight();
+        if (weight == 0L) {
+          weight = 1L;
         }
-        if (l2 -= l4 < 0L) {
-          return localPeer3;
+        if (hit -= weight < 0L) {
+          return peer;
         }
       }
     }
@@ -338,16 +342,13 @@ class Nxt$Peer
   
   static int getNumberOfConnectedPublicPeers()
   {
-    int i = 0;
-    Iterator localIterator = Nxt.peers.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Peer localPeer = (Peer)localIterator.next();
-      if ((localPeer.state == 1) && (localPeer.announcedAddress.length() > 0)) {
-        i++;
+    int numberOfConnectedPeers = 0;
+    for (Peer peer : Nxt.peers.values()) {
+      if ((peer.state == 1) && (peer.announcedAddress.length() > 0)) {
+        numberOfConnectedPeers++;
       }
     }
-    return i;
+    return numberOfConnectedPeers;
   }
   
   int getWeight()
@@ -355,382 +356,393 @@ class Nxt$Peer
     if (this.accountId == 0L) {
       return 0;
     }
-    Nxt.Account localAccount = (Nxt.Account)Nxt.accounts.get(Long.valueOf(this.accountId));
-    if (localAccount == null) {
+    Nxt.Account account = (Nxt.Account)Nxt.accounts.get(Long.valueOf(this.accountId));
+    if (account == null) {
       return 0;
     }
-    return (int)(this.adjustedWeight * (localAccount.getBalance() / 100L) / 1000000000L);
+    return (int)(this.adjustedWeight * (account.getBalance() / 100L) / 1000000000L);
   }
   
   String getSoftware()
   {
-    StringBuilder localStringBuilder = new StringBuilder();
-    localStringBuilder.append(this.application == null ? "?" : this.application.substring(0, Math.min(this.application.length(), 10)));
-    localStringBuilder.append(" (");
-    localStringBuilder.append(this.version == null ? "?" : this.version.substring(0, Math.min(this.version.length(), 10)));
-    localStringBuilder.append(")").append(" @ ");
-    localStringBuilder.append(this.platform == null ? "?" : this.platform.substring(0, Math.min(this.platform.length(), 12)));
-    return localStringBuilder.toString();
+    StringBuilder buf = new StringBuilder();
+    buf.append(this.application == null ? "?" : this.application.substring(0, Math.min(this.application.length(), 10)));
+    buf.append(" (");
+    buf.append(this.version == null ? "?" : this.version.substring(0, Math.min(this.version.length(), 10)));
+    buf.append(")").append(" @ ");
+    buf.append(this.platform == null ? "?" : this.platform.substring(0, Math.min(this.platform.length(), 12)));
+    return buf.toString();
   }
   
   void removeBlacklistedStatus()
   {
     setState(0);
     this.blacklistingTime = 0L;
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray1 = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONArray1.add(localJSONObject2);
-    localJSONObject1.put("removedBlacklistedPeers", localJSONArray1);
-    JSONArray localJSONArray2 = new JSONArray();
-    JSONObject localJSONObject3 = new JSONObject();
-    localJSONObject3.put("index", Integer.valueOf(this.index));
-    localJSONObject3.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
-    Iterator localIterator = Nxt.wellKnownPeers.iterator();
-    Object localObject;
-    while (localIterator.hasNext())
-    {
-      localObject = (String)localIterator.next();
-      if (this.announcedAddress.equals(localObject))
+    
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray removedBlacklistedPeers = new JSONArray();
+    JSONObject removedBlacklistedPeer = new JSONObject();
+    removedBlacklistedPeer.put("index", Integer.valueOf(this.index));
+    removedBlacklistedPeers.add(removedBlacklistedPeer);
+    response.put("removedBlacklistedPeers", removedBlacklistedPeers);
+    
+    JSONArray addedKnownPeers = new JSONArray();
+    JSONObject addedKnownPeer = new JSONObject();
+    addedKnownPeer.put("index", Integer.valueOf(this.index));
+    addedKnownPeer.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
+    for (String wellKnownPeer : Nxt.wellKnownPeers) {
+      if (this.announcedAddress.equals(wellKnownPeer))
       {
-        localJSONObject3.put("wellKnown", Boolean.valueOf(true));
+        addedKnownPeer.put("wellKnown", Boolean.valueOf(true));
+        
         break;
       }
     }
-    localJSONArray2.add(localJSONObject3);
-    localJSONObject1.put("addedKnownPeers", localJSONArray2);
-    localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      localObject = (Nxt.User)localIterator.next();
-      ((Nxt.User)localObject).send(localJSONObject1);
+    addedKnownPeers.add(addedKnownPeer);
+    response.put("addedKnownPeers", addedKnownPeers);
+    for (Nxt.User user : Nxt.users.values()) {
+      user.send(response);
     }
   }
   
   void removePeer()
   {
     Nxt.peers.values().remove(this);
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONArray.add(localJSONObject2);
-    localJSONObject1.put("removedKnownPeers", localJSONArray);
-    Iterator localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Nxt.User localUser = (Nxt.User)localIterator.next();
-      localUser.send(localJSONObject1);
+    
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray removedKnownPeers = new JSONArray();
+    JSONObject removedKnownPeer = new JSONObject();
+    removedKnownPeer.put("index", Integer.valueOf(this.index));
+    removedKnownPeers.add(removedKnownPeer);
+    response.put("removedKnownPeers", removedKnownPeers);
+    for (Nxt.User user : Nxt.users.values()) {
+      user.send(response);
     }
   }
   
-  static void sendToAllPeers(JSONObject paramJSONObject)
+  static void sendToSomePeers(JSONObject request)
   {
-    Iterator localIterator = Nxt.peers.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Peer localPeer = (Peer)localIterator.next();
-      if ((!Nxt.enableHallmarkProtection) || (localPeer.getWeight() >= Nxt.pushThreshold)) {
-        if ((localPeer.blacklistingTime == 0L) && (localPeer.state == 1) && (localPeer.announcedAddress.length() > 0)) {
-          localPeer.send(paramJSONObject);
+    int successful = 0;
+    List<Future<JSONObject>> expectedResponses = new ArrayList();
+    for (Peer peer : Nxt.peers.values()) {
+      if ((!Nxt.enableHallmarkProtection) || (peer.getWeight() >= Nxt.pushThreshold))
+      {
+        if ((peer.blacklistingTime == 0L) && (peer.state == 1) && (peer.announcedAddress.length() > 0))
+        {
+          Future<JSONObject> futureResponse = Nxt.sendToPeersService.submit(new Nxt.Peer.1(peer, request));
+          
+
+
+
+
+          expectedResponses.add(futureResponse);
+        }
+        if (expectedResponses.size() >= Nxt.sendToPeersLimit - successful)
+        {
+          for (Future<JSONObject> future : expectedResponses) {
+            try
+            {
+              JSONObject response = (JSONObject)future.get();
+              if ((response != null) && (response.get("error") == null)) {
+                successful++;
+              }
+            }
+            catch (InterruptedException e)
+            {
+              Thread.currentThread().interrupt();
+            }
+            catch (ExecutionException e)
+            {
+              Nxt.logDebugMessage("Error in sendToSomePeers", e);
+            }
+          }
+          expectedResponses.clear();
+        }
+        if (successful >= Nxt.sendToPeersLimit) {
+          return;
         }
       }
     }
   }
   
-  JSONObject send(JSONObject paramJSONObject)
+  JSONObject send(JSONObject request)
   {
-    String str = null;
-    int i = 0;
-    HttpURLConnection localHttpURLConnection = null;
-    JSONObject localJSONObject;
+    String log = null;
+    boolean showLog = false;
+    
+    HttpURLConnection connection = null;
+    JSONObject response;
     try
     {
       if (Nxt.communicationLoggingMask != 0) {
-        str = "\"" + this.announcedAddress + "\": " + paramJSONObject.toString();
+        log = "\"" + this.announcedAddress + "\": " + request.toString();
       }
-      paramJSONObject.put("protocol", Integer.valueOf(1));
-      URL localURL = new URL("http://" + this.announcedAddress + (new URL("http://" + this.announcedAddress).getPort() < 0 ? ":7874" : "") + "/nxt");
-      localHttpURLConnection = (HttpURLConnection)localURL.openConnection();
-      localHttpURLConnection.setRequestMethod("POST");
-      localHttpURLConnection.setDoOutput(true);
-      localHttpURLConnection.setConnectTimeout(Nxt.connectTimeout);
-      localHttpURLConnection.setReadTimeout(Nxt.readTimeout);
-      Nxt.CountingOutputStream localCountingOutputStream = new Nxt.CountingOutputStream(localHttpURLConnection.getOutputStream());
-      Object localObject1 = new BufferedWriter(new OutputStreamWriter(localCountingOutputStream, "UTF-8"));
-      Object localObject2 = null;
+      request.put("protocol", Integer.valueOf(1));
+      
+      URL url = new URL("http://" + this.announcedAddress + (new URL("http://" + this.announcedAddress).getPort() < 0 ? ":7874" : "") + "/nxt");
+      
+      connection = (HttpURLConnection)url.openConnection();
+      connection.setRequestMethod("POST");
+      connection.setDoOutput(true);
+      connection.setConnectTimeout(Nxt.connectTimeout);
+      connection.setReadTimeout(Nxt.readTimeout);
+      
+      Nxt.CountingOutputStream cos = new Nxt.CountingOutputStream(connection.getOutputStream());
+      Writer writer = new BufferedWriter(new OutputStreamWriter(cos, "UTF-8"));Throwable localThrowable4 = null;
       try
       {
-        paramJSONObject.writeJSONString((Writer)localObject1);
+        request.writeJSONString(writer);
       }
-      catch (Throwable localThrowable2)
+      catch (Throwable localThrowable1)
       {
-        localObject2 = localThrowable2;
-        throw localThrowable2;
+        localThrowable4 = localThrowable1;throw localThrowable1;
       }
       finally
       {
-        if (localObject1 != null) {
-          if (localObject2 != null) {
+        if (writer != null) {
+          if (localThrowable4 != null) {
             try
             {
-              ((Writer)localObject1).close();
+              writer.close();
             }
-            catch (Throwable localThrowable5)
+            catch (Throwable x2)
             {
-              ((Throwable)localObject2).addSuppressed(localThrowable5);
+              localThrowable4.addSuppressed(x2);
             }
           } else {
-            ((Writer)localObject1).close();
+            writer.close();
           }
         }
       }
-      updateUploadedVolume(localCountingOutputStream.getCount());
-      if (localHttpURLConnection.getResponseCode() == 200)
+      updateUploadedVolume(cos.getCount());
+      if (connection.getResponseCode() == 200)
       {
+        int numberOfBytes;
+        JSONObject response;
         if ((Nxt.communicationLoggingMask & 0x4) != 0)
         {
-          localObject1 = new ByteArrayOutputStream();
-          localObject2 = new byte[65536];
-          Object localObject5 = localHttpURLConnection.getInputStream();
-          Object localObject6 = null;
+          ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+          byte[] buffer = new byte[65536];
+          
+          InputStream inputStream = connection.getInputStream();x2 = null;
           try
           {
-            int j;
-            while ((j = ((InputStream)localObject5).read((byte[])localObject2)) > 0) {
-              ((ByteArrayOutputStream)localObject1).write((byte[])localObject2, 0, j);
+            while ((numberOfBytes = inputStream.read(buffer)) > 0) {
+              byteArrayOutputStream.write(buffer, 0, numberOfBytes);
             }
           }
-          catch (Throwable localThrowable7)
+          catch (Throwable localThrowable2)
           {
-            localObject6 = localThrowable7;
-            throw localThrowable7;
+            x2 = localThrowable2;throw localThrowable2;
           }
           finally
           {
-            if (localObject5 != null) {
-              if (localObject6 != null) {
+            if (inputStream != null) {
+              if (x2 != null) {
                 try
                 {
-                  ((InputStream)localObject5).close();
+                  inputStream.close();
                 }
-                catch (Throwable localThrowable8)
+                catch (Throwable x2)
                 {
-                  localObject6.addSuppressed(localThrowable8);
+                  x2.addSuppressed(x2);
                 }
               } else {
-                ((InputStream)localObject5).close();
+                inputStream.close();
               }
             }
           }
-          localObject5 = ((ByteArrayOutputStream)localObject1).toString("UTF-8");
-          str = str + " >>> " + (String)localObject5;
-          i = 1;
-          updateDownloadedVolume(((String)localObject5).getBytes("UTF-8").length);
-          localJSONObject = (JSONObject)JSONValue.parse((String)localObject5);
+          String responseValue = byteArrayOutputStream.toString("UTF-8");
+          log = log + " >>> " + responseValue;
+          showLog = true;
+          updateDownloadedVolume(responseValue.getBytes("UTF-8").length);
+          response = (JSONObject)JSONValue.parse(responseValue);
         }
         else
         {
-          localObject1 = new Nxt.CountingInputStream(localHttpURLConnection.getInputStream());
-          localObject2 = new BufferedReader(new InputStreamReader((InputStream)localObject1, "UTF-8"));
-          Object localObject3 = null;
+          Nxt.CountingInputStream cis = new Nxt.CountingInputStream(connection.getInputStream());
+          
+          Object reader = new BufferedReader(new InputStreamReader(cis, "UTF-8"));numberOfBytes = null;
           try
           {
-            localJSONObject = (JSONObject)JSONValue.parse((Reader)localObject2);
+            response = (JSONObject)JSONValue.parse((Reader)reader);
           }
-          catch (Throwable localThrowable4)
+          catch (Throwable localThrowable5)
           {
-            localObject3 = localThrowable4;
-            throw localThrowable4;
+            JSONObject response;
+            numberOfBytes = localThrowable5;throw localThrowable5;
           }
           finally
           {
-            if (localObject2 != null) {
-              if (localObject3 != null) {
+            if (reader != null) {
+              if (numberOfBytes != null) {
                 try
                 {
-                  ((Reader)localObject2).close();
+                  ((Reader)reader).close();
                 }
-                catch (Throwable localThrowable9)
+                catch (Throwable x2)
                 {
-                  localObject3.addSuppressed(localThrowable9);
+                  numberOfBytes.addSuppressed(x2);
                 }
               } else {
-                ((Reader)localObject2).close();
+                ((Reader)reader).close();
               }
             }
           }
-          updateDownloadedVolume(((Nxt.CountingInputStream)localObject1).getCount());
+          updateDownloadedVolume(cis.getCount());
         }
       }
       else
       {
         if ((Nxt.communicationLoggingMask & 0x2) != 0)
         {
-          str = str + " >>> Peer responded with HTTP " + localHttpURLConnection.getResponseCode() + " code!";
-          i = 1;
+          log = log + " >>> Peer responded with HTTP " + connection.getResponseCode() + " code!";
+          showLog = true;
         }
         disconnect();
-        localJSONObject = null;
+        
+        response = null;
       }
     }
-    catch (Exception localException)
+    catch (RuntimeException|IOException e)
     {
+      if ((!(e instanceof ConnectException)) && (!(e instanceof UnknownHostException)) && (!(e instanceof NoRouteToHostException)) && (!(e instanceof SocketTimeoutException)) && (!(e instanceof SocketException))) {
+        Nxt.logDebugMessage("Error sending JSON request", e);
+      }
       if ((Nxt.communicationLoggingMask & 0x1) != 0)
       {
-        str = str + " >>> " + localException.toString();
-        i = 1;
+        log = log + " >>> " + e.toString();
+        showLog = true;
       }
       if (this.state == 0) {
         blacklist();
       } else {
         disconnect();
       }
-      localJSONObject = null;
+      response = null;
     }
-    if (i != 0) {
-      Nxt.logMessage(str + "\n");
+    if (showLog) {
+      Nxt.logMessage(log + "\n");
     }
-    if (localHttpURLConnection != null) {
-      localHttpURLConnection.disconnect();
+    if (connection != null) {
+      connection.disconnect();
     }
-    return localJSONObject;
+    return response;
   }
   
-  void setState(int paramInt)
+  void setState(int state)
   {
-    JSONObject localJSONObject1;
-    JSONArray localJSONArray;
-    JSONObject localJSONObject2;
-    Iterator localIterator;
-    Object localObject;
-    if ((this.state == 0) && (paramInt != 0))
+    JSONObject response;
+    JSONObject response;
+    if ((this.state == 0) && (state != 0))
     {
-      localJSONObject1 = new JSONObject();
-      localJSONObject1.put("response", "processNewData");
+      response = new JSONObject();
+      response.put("response", "processNewData");
       if (this.announcedAddress.length() > 0)
       {
-        localJSONArray = new JSONArray();
-        localJSONObject2 = new JSONObject();
-        localJSONObject2.put("index", Integer.valueOf(this.index));
-        localJSONArray.add(localJSONObject2);
-        localJSONObject1.put("removedKnownPeers", localJSONArray);
+        JSONArray removedKnownPeers = new JSONArray();
+        JSONObject removedKnownPeer = new JSONObject();
+        removedKnownPeer.put("index", Integer.valueOf(this.index));
+        removedKnownPeers.add(removedKnownPeer);
+        response.put("removedKnownPeers", removedKnownPeers);
       }
-      localJSONArray = new JSONArray();
-      localJSONObject2 = new JSONObject();
-      localJSONObject2.put("index", Integer.valueOf(this.index));
-      if (paramInt == 2) {
-        localJSONObject2.put("disconnected", Boolean.valueOf(true));
+      JSONArray addedActivePeers = new JSONArray();
+      JSONObject addedActivePeer = new JSONObject();
+      addedActivePeer.put("index", Integer.valueOf(this.index));
+      if (state == 2) {
+        addedActivePeer.put("disconnected", Boolean.valueOf(true));
       }
-      localIterator = Nxt.peers.entrySet().iterator();
-      while (localIterator.hasNext())
-      {
-        localObject = (Map.Entry)localIterator.next();
-        if (((Map.Entry)localObject).getValue() == this)
+      for (Map.Entry<String, Peer> peerEntry : Nxt.peers.entrySet()) {
+        if (peerEntry.getValue() == this)
         {
-          localJSONObject2.put("address", ((String)((Map.Entry)localObject).getKey()).length() > 30 ? ((String)((Map.Entry)localObject).getKey()).substring(0, 30) + "..." : (String)((Map.Entry)localObject).getKey());
+          addedActivePeer.put("address", ((String)peerEntry.getKey()).length() > 30 ? ((String)peerEntry.getKey()).substring(0, 30) + "..." : (String)peerEntry.getKey());
+          
           break;
         }
       }
-      localJSONObject2.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
-      localJSONObject2.put("weight", Integer.valueOf(getWeight()));
-      localJSONObject2.put("downloaded", Long.valueOf(this.downloadedVolume));
-      localJSONObject2.put("uploaded", Long.valueOf(this.uploadedVolume));
-      localJSONObject2.put("software", getSoftware());
-      localIterator = Nxt.wellKnownPeers.iterator();
-      while (localIterator.hasNext())
-      {
-        localObject = (String)localIterator.next();
-        if (this.announcedAddress.equals(localObject))
+      addedActivePeer.put("announcedAddress", this.announcedAddress.length() > 30 ? this.announcedAddress.substring(0, 30) + "..." : this.announcedAddress);
+      addedActivePeer.put("weight", Integer.valueOf(getWeight()));
+      addedActivePeer.put("downloaded", Long.valueOf(this.downloadedVolume));
+      addedActivePeer.put("uploaded", Long.valueOf(this.uploadedVolume));
+      addedActivePeer.put("software", getSoftware());
+      for (String wellKnownPeer : Nxt.wellKnownPeers) {
+        if (this.announcedAddress.equals(wellKnownPeer))
         {
-          localJSONObject2.put("wellKnown", Boolean.valueOf(true));
+          addedActivePeer.put("wellKnown", Boolean.valueOf(true));
+          
           break;
         }
       }
-      localJSONArray.add(localJSONObject2);
-      localJSONObject1.put("addedActivePeers", localJSONArray);
-      localIterator = Nxt.users.values().iterator();
-      while (localIterator.hasNext())
-      {
-        localObject = (Nxt.User)localIterator.next();
-        ((Nxt.User)localObject).send(localJSONObject1);
+      addedActivePeers.add(addedActivePeer);
+      response.put("addedActivePeers", addedActivePeers);
+      for (Nxt.User user : Nxt.users.values()) {
+        user.send(response);
       }
     }
-    else if ((this.state != 0) && (paramInt != 0))
+    else if ((this.state != 0) && (state != 0))
     {
-      localJSONObject1 = new JSONObject();
-      localJSONObject1.put("response", "processNewData");
-      localJSONArray = new JSONArray();
-      localJSONObject2 = new JSONObject();
-      localJSONObject2.put("index", Integer.valueOf(this.index));
-      localJSONObject2.put(paramInt == 1 ? "connected" : "disconnected", Boolean.valueOf(true));
-      localJSONArray.add(localJSONObject2);
-      localJSONObject1.put("changedActivePeers", localJSONArray);
-      localIterator = Nxt.users.values().iterator();
-      while (localIterator.hasNext())
-      {
-        localObject = (Nxt.User)localIterator.next();
-        ((Nxt.User)localObject).send(localJSONObject1);
+      response = new JSONObject();
+      response.put("response", "processNewData");
+      
+      JSONArray changedActivePeers = new JSONArray();
+      JSONObject changedActivePeer = new JSONObject();
+      changedActivePeer.put("index", Integer.valueOf(this.index));
+      changedActivePeer.put(state == 1 ? "connected" : "disconnected", Boolean.valueOf(true));
+      changedActivePeers.add(changedActivePeer);
+      response.put("changedActivePeers", changedActivePeers);
+      for (Nxt.User user : Nxt.users.values()) {
+        user.send(response);
       }
     }
-    this.state = paramInt;
+    this.state = state;
   }
   
-  void updateDownloadedVolume(long paramLong)
+  void updateDownloadedVolume(long volume)
   {
-    this.downloadedVolume += paramLong;
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONObject2.put("downloaded", Long.valueOf(this.downloadedVolume));
-    localJSONArray.add(localJSONObject2);
-    localJSONObject1.put("changedActivePeers", localJSONArray);
-    Iterator localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Nxt.User localUser = (Nxt.User)localIterator.next();
-      localUser.send(localJSONObject1);
+    this.downloadedVolume += volume;
+    
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray changedActivePeers = new JSONArray();
+    JSONObject changedActivePeer = new JSONObject();
+    changedActivePeer.put("index", Integer.valueOf(this.index));
+    changedActivePeer.put("downloaded", Long.valueOf(this.downloadedVolume));
+    changedActivePeers.add(changedActivePeer);
+    response.put("changedActivePeers", changedActivePeers);
+    for (Nxt.User user : Nxt.users.values()) {
+      user.send(response);
     }
   }
   
-  void updateUploadedVolume(long paramLong)
+  void updateUploadedVolume(long volume)
   {
-    this.uploadedVolume += paramLong;
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONObject2.put("uploaded", Long.valueOf(this.uploadedVolume));
-    localJSONArray.add(localJSONObject2);
-    localJSONObject1.put("changedActivePeers", localJSONArray);
-    Iterator localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Nxt.User localUser = (Nxt.User)localIterator.next();
-      localUser.send(localJSONObject1);
+    this.uploadedVolume += volume;
+    
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray changedActivePeers = new JSONArray();
+    JSONObject changedActivePeer = new JSONObject();
+    changedActivePeer.put("index", Integer.valueOf(this.index));
+    changedActivePeer.put("uploaded", Long.valueOf(this.uploadedVolume));
+    changedActivePeers.add(changedActivePeer);
+    response.put("changedActivePeers", changedActivePeers);
+    for (Nxt.User user : Nxt.users.values()) {
+      user.send(response);
     }
   }
   
   void updateWeight()
   {
-    JSONObject localJSONObject1 = new JSONObject();
-    localJSONObject1.put("response", "processNewData");
-    JSONArray localJSONArray = new JSONArray();
-    JSONObject localJSONObject2 = new JSONObject();
-    localJSONObject2.put("index", Integer.valueOf(this.index));
-    localJSONObject2.put("weight", Integer.valueOf(getWeight()));
-    localJSONArray.add(localJSONObject2);
-    localJSONObject1.put("changedActivePeers", localJSONArray);
-    Iterator localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Nxt.User localUser = (Nxt.User)localIterator.next();
-      localUser.send(localJSONObject1);
-    }
-  }
+    JSONObject response = new JSONObject();
+    response.put("response", "processNewData");
+    
+    JSONArray changedActivePeers = new JSONArray();
+    JSONObject changedActivePeer = new JSONObject();
+    changedActivePeer.put("index", Integer.valueOf(this.index));
+    changedActivePeer.put("weight", Integer.valueOf(getWeight()));

@@ -6,667 +6,700 @@ class Nxt$Curve25519
   public static final byte[] ORDER = { -19, -45, -11, 92, 26, 99, 18, 88, -42, -100, -9, -94, -34, -7, -34, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16 };
   private static final int P25 = 33554431;
   private static final int P26 = 67108863;
-  private static final byte[] ORDER_TIMES_8 = { 104, -97, -82, -25, -46, 24, -109, -64, -78, -26, -68, 23, -11, -50, -9, -90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -128 };
-  private static final Nxt.Curve25519.long10 BASE_2Y = new Nxt.Curve25519.long10(39999547L, 18689728L, 59995525L, 1648697L, 57546132L, 24010086L, 19059592L, 5425144L, 63499247L, 16420658L);
-  private static final Nxt.Curve25519.long10 BASE_R2Y = new Nxt.Curve25519.long10(5744L, 8160848L, 4790893L, 13779497L, 35730846L, 12541209L, 49101323L, 30047407L, 40071253L, 6226132L);
   
-  public static final void clamp(byte[] paramArrayOfByte)
+  public static final void clamp(byte[] k)
   {
-    paramArrayOfByte[31] = ((byte)(paramArrayOfByte[31] & 0x7F));
-    paramArrayOfByte[31] = ((byte)(paramArrayOfByte[31] | 0x40));
-    int tmp22_21 = 0;
-    paramArrayOfByte[tmp22_21] = ((byte)(paramArrayOfByte[tmp22_21] & 0xF8));
+    k[31] = ((byte)(k[31] & 0x7F));
+    k[31] = ((byte)(k[31] | 0x40)); int 
+      tmp22_21 = 0;k[tmp22_21] = ((byte)(k[tmp22_21] & 0xF8));
   }
   
-  public static final void keygen(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3)
+  public static final void keygen(byte[] P, byte[] s, byte[] k)
   {
-    clamp(paramArrayOfByte3);
-    core(paramArrayOfByte1, paramArrayOfByte2, paramArrayOfByte3, null);
+    clamp(k);
+    core(P, s, k, null);
   }
   
-  public static final void curve(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3)
+  public static final void curve(byte[] Z, byte[] k, byte[] P)
   {
-    core(paramArrayOfByte1, null, paramArrayOfByte2, paramArrayOfByte3);
+    core(Z, null, k, P);
   }
   
-  public static final boolean sign(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3, byte[] paramArrayOfByte4)
+  public static final boolean sign(byte[] v, byte[] h, byte[] x, byte[] s)
   {
-    byte[] arrayOfByte1 = new byte[65];
-    byte[] arrayOfByte2 = new byte[33];
-    for (int j = 0; j < 32; j++) {
-      paramArrayOfByte1[j] = 0;
+    byte[] tmp1 = new byte[65];
+    byte[] tmp2 = new byte[33];
+    for (int i = 0; i < 32; i++) {
+      v[i] = 0;
     }
-    j = mula_small(paramArrayOfByte1, paramArrayOfByte3, 0, paramArrayOfByte2, 32, -1);
-    mula_small(paramArrayOfByte1, paramArrayOfByte1, 0, ORDER, 32, (15 - paramArrayOfByte1[31]) / 16);
-    mula32(arrayOfByte1, paramArrayOfByte1, paramArrayOfByte4, 32, 1);
-    divmod(arrayOfByte2, arrayOfByte1, 64, ORDER, 32);
-    int i = 0;
-    for (j = 0; j < 32; j++) {
-      i |= (paramArrayOfByte1[j] = arrayOfByte1[j]);
+    i = mula_small(v, x, 0, h, 32, -1);
+    mula_small(v, v, 0, ORDER, 32, (15 - v[31]) / 16);
+    mula32(tmp1, v, s, 32, 1);
+    divmod(tmp2, tmp1, 64, ORDER, 32);
+    int w = 0;
+    for (i = 0; i < 32; i++) {
+      w |= (v[i] = tmp1[i]);
     }
-    return i != 0;
+    return w != 0;
   }
   
-  public static final void verify(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3, byte[] paramArrayOfByte4)
+  public static final void verify(byte[] Y, byte[] v, byte[] h, byte[] P)
   {
-    byte[] arrayOfByte = new byte[32];
-    Nxt.Curve25519.long10[] arrayOflong101 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    Nxt.Curve25519.long10[] arrayOflong102 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    Nxt.Curve25519.long10[] arrayOflong103 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    Nxt.Curve25519.long10[] arrayOflong104 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    Nxt.Curve25519.long10[] arrayOflong105 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    Nxt.Curve25519.long10[] arrayOflong106 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    int m = 0;
-    set(arrayOflong101[0], 9);
-    unpack(arrayOflong101[1], paramArrayOfByte4);
-    x_to_y2(arrayOflong105[0], arrayOflong106[0], arrayOflong101[1]);
-    sqrt(arrayOflong105[0], arrayOflong106[0]);
-    int i1 = is_negative(arrayOflong105[0]);
-    arrayOflong106[0]._0 += 39420360L;
-    mul(arrayOflong106[1], BASE_2Y, arrayOflong105[0]);
-    sub(arrayOflong105[i1], arrayOflong106[0], arrayOflong106[1]);
-    add(arrayOflong105[(1 - i1)], arrayOflong106[0], arrayOflong106[1]);
-    cpy(arrayOflong106[0], arrayOflong101[1]);
-    arrayOflong106[0]._0 -= 9L;
-    sqr(arrayOflong106[1], arrayOflong106[0]);
-    recip(arrayOflong106[0], arrayOflong106[1], 0);
-    mul(arrayOflong102[0], arrayOflong105[0], arrayOflong106[0]);
-    sub(arrayOflong102[0], arrayOflong102[0], arrayOflong101[1]);
-    arrayOflong102[0]._0 -= 486671L;
-    mul(arrayOflong102[1], arrayOflong105[1], arrayOflong106[0]);
-    sub(arrayOflong102[1], arrayOflong102[1], arrayOflong101[1]);
-    arrayOflong102[1]._0 -= 486671L;
-    mul_small(arrayOflong102[0], arrayOflong102[0], 1L);
-    mul_small(arrayOflong102[1], arrayOflong102[1], 1L);
-    for (int n = 0; n < 32; n++)
+    byte[] d = new byte[32];
+    
+    Nxt.Curve25519.long10[] p = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    Nxt.Curve25519.long10[] s = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    Nxt.Curve25519.long10[] yx = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    Nxt.Curve25519.long10[] yz = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    Nxt.Curve25519.long10[] t1 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    Nxt.Curve25519.long10[] t2 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    
+    int vi = 0;int hi = 0;int di = 0;int nvh = 0;
+    
+
+
+    set(p[0], 9);
+    unpack(p[1], P);
+    
+
+
+
+
+
+    x_to_y2(t1[0], t2[0], p[1]);
+    sqrt(t1[0], t2[0]);
+    int j = is_negative(t1[0]);
+    t2[0]._0 += 39420360L;
+    mul(t2[1], BASE_2Y, t1[0]);
+    sub(t1[j], t2[0], t2[1]);
+    add(t1[(1 - j)], t2[0], t2[1]);
+    cpy(t2[0], p[1]);
+    t2[0]._0 -= 9L;
+    sqr(t2[1], t2[0]);
+    recip(t2[0], t2[1], 0);
+    mul(s[0], t1[0], t2[0]);
+    sub(s[0], s[0], p[1]);
+    s[0]._0 -= 486671L;
+    mul(s[1], t1[1], t2[0]);
+    sub(s[1], s[1], p[1]);
+    s[1]._0 -= 486671L;
+    mul_small(s[0], s[0], 1L);
+    mul_small(s[1], s[1], 1L);
+    for (int i = 0; i < 32; i++)
     {
-      i = i >> 8 ^ paramArrayOfByte2[n] & 0xFF ^ (paramArrayOfByte2[n] & 0xFF) << 1;
-      j = j >> 8 ^ paramArrayOfByte3[n] & 0xFF ^ (paramArrayOfByte3[n] & 0xFF) << 1;
-      m = i ^ j ^ 0xFFFFFFFF;
-      k = m & (k & 0x80) >> 7 ^ i;
-      k ^= m & (k & 0x1) << 1;
-      k ^= m & (k & 0x2) << 1;
-      k ^= m & (k & 0x4) << 1;
-      k ^= m & (k & 0x8) << 1;
-      k ^= m & (k & 0x10) << 1;
-      k ^= m & (k & 0x20) << 1;
-      k ^= m & (k & 0x40) << 1;
-      arrayOfByte[n] = ((byte)k);
+      vi = vi >> 8 ^ v[i] & 0xFF ^ (v[i] & 0xFF) << 1;
+      hi = hi >> 8 ^ h[i] & 0xFF ^ (h[i] & 0xFF) << 1;
+      nvh = vi ^ hi ^ 0xFFFFFFFF;
+      di = nvh & (di & 0x80) >> 7 ^ vi;
+      di ^= nvh & (di & 0x1) << 1;
+      di ^= nvh & (di & 0x2) << 1;
+      di ^= nvh & (di & 0x4) << 1;
+      di ^= nvh & (di & 0x8) << 1;
+      di ^= nvh & (di & 0x10) << 1;
+      di ^= nvh & (di & 0x20) << 1;
+      di ^= nvh & (di & 0x40) << 1;
+      d[i] = ((byte)di);
     }
-    k = (m & (k & 0x80) << 1 ^ i) >> 8;
-    set(arrayOflong103[0], 1);
-    cpy(arrayOflong103[1], arrayOflong101[k]);
-    cpy(arrayOflong103[2], arrayOflong102[0]);
-    set(arrayOflong104[0], 0);
-    set(arrayOflong104[1], 1);
-    set(arrayOflong104[2], 1);
-    i = 0;
-    j = 0;
-    n = 32;
-    while (n-- != 0)
+    di = (nvh & (di & 0x80) << 1 ^ vi) >> 8;
+    
+
+    set(yx[0], 1);
+    cpy(yx[1], p[di]);
+    cpy(yx[2], s[0]);
+    set(yz[0], 0);
+    set(yz[1], 1);
+    set(yz[2], 1);
+    
+
+
+
+
+
+
+    vi = 0;
+    hi = 0;
+    for (i = 32; i-- != 0;)
     {
-      i = i << 8 | paramArrayOfByte2[n] & 0xFF;
-      j = j << 8 | paramArrayOfByte3[n] & 0xFF;
-      k = k << 8 | arrayOfByte[n] & 0xFF;
-      i1 = 8;
-      while (i1-- != 0)
+      vi = vi << 8 | v[i] & 0xFF;
+      hi = hi << 8 | h[i] & 0xFF;
+      di = di << 8 | d[i] & 0xFF;
+      for (j = 8; j-- != 0;)
       {
-        mont_prep(arrayOflong105[0], arrayOflong106[0], arrayOflong103[0], arrayOflong104[0]);
-        mont_prep(arrayOflong105[1], arrayOflong106[1], arrayOflong103[1], arrayOflong104[1]);
-        mont_prep(arrayOflong105[2], arrayOflong106[2], arrayOflong103[2], arrayOflong104[2]);
-        i2 = ((i ^ i >> 1) >> i1 & 0x1) + ((j ^ j >> 1) >> i1 & 0x1);
-        mont_dbl(arrayOflong103[2], arrayOflong104[2], arrayOflong105[i2], arrayOflong106[i2], arrayOflong103[0], arrayOflong104[0]);
-        i2 = k >> i1 & 0x2 ^ (k >> i1 & 0x1) << 1;
-        mont_add(arrayOflong105[1], arrayOflong106[1], arrayOflong105[i2], arrayOflong106[i2], arrayOflong103[1], arrayOflong104[1], arrayOflong101[(k >> i1 & 0x1)]);
-        mont_add(arrayOflong105[2], arrayOflong106[2], arrayOflong105[0], arrayOflong106[0], arrayOflong103[2], arrayOflong104[2], arrayOflong102[(((i ^ j) >> i1 & 0x2) >> 1)]);
+        mont_prep(t1[0], t2[0], yx[0], yz[0]);
+        mont_prep(t1[1], t2[1], yx[1], yz[1]);
+        mont_prep(t1[2], t2[2], yx[2], yz[2]);
+        
+        int k = ((vi ^ vi >> 1) >> j & 0x1) + ((hi ^ hi >> 1) >> j & 0x1);
+        
+        mont_dbl(yx[2], yz[2], t1[k], t2[k], yx[0], yz[0]);
+        
+        k = di >> j & 0x2 ^ (di >> j & 0x1) << 1;
+        mont_add(t1[1], t2[1], t1[k], t2[k], yx[1], yz[1], p[(di >> j & 0x1)]);
+        
+
+        mont_add(t1[2], t2[2], t1[0], t2[0], yx[2], yz[2], s[(((vi ^ hi) >> j & 0x2) >> 1)]);
       }
     }
-    int i2 = (i & 0x1) + (j & 0x1);
-    recip(arrayOflong105[0], arrayOflong104[i2], 0);
-    mul(arrayOflong105[1], arrayOflong103[i2], arrayOflong105[0]);
-    pack(arrayOflong105[1], paramArrayOfByte1);
+    int k = (vi & 0x1) + (hi & 0x1);
+    recip(t1[0], yz[k], 0);
+    mul(t1[1], yx[k], t1[0]);
+    
+    pack(t1[1], Y);
   }
   
-  private static final void cpy32(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2)
+  private static final void cpy32(byte[] d, byte[] s)
   {
     for (int i = 0; i < 32; i++) {
-      paramArrayOfByte1[i] = paramArrayOfByte2[i];
+      d[i] = s[i];
     }
   }
   
-  private static final int mula_small(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, int paramInt1, byte[] paramArrayOfByte3, int paramInt2, int paramInt3)
+  private static final int mula_small(byte[] p, byte[] q, int m, byte[] x, int n, int z)
   {
-    int i = 0;
-    for (int j = 0; j < paramInt2; j++)
+    int v = 0;
+    for (int i = 0; i < n; i++)
     {
-      i += (paramArrayOfByte2[(j + paramInt1)] & 0xFF) + paramInt3 * (paramArrayOfByte3[j] & 0xFF);
-      paramArrayOfByte1[(j + paramInt1)] = ((byte)i);
-      i >>= 8;
+      v += (q[(i + m)] & 0xFF) + z * (x[i] & 0xFF);
+      p[(i + m)] = ((byte)v);
+      v >>= 8;
     }
-    return i;
+    return v;
   }
   
-  private static final int mula32(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3, int paramInt1, int paramInt2)
+  private static final int mula32(byte[] p, byte[] x, byte[] y, int t, int z)
   {
-    int i = 0;
-    for (int j = 0; j < paramInt1; j++)
+    int n = 31;
+    int w = 0;
+    for (int i = 0; i < t; i++)
     {
-      int k = paramInt2 * (paramArrayOfByte3[j] & 0xFF);
-      i += mula_small(paramArrayOfByte1, paramArrayOfByte1, j, paramArrayOfByte2, 31, k) + (paramArrayOfByte1[(j + 31)] & 0xFF) + k * (paramArrayOfByte2[31] & 0xFF);
-      paramArrayOfByte1[(j + 31)] = ((byte)i);
-      i >>= 8;
+      int zy = z * (y[i] & 0xFF);
+      w += mula_small(p, p, i, x, 31, zy) + (p[(i + 31)] & 0xFF) + zy * (x[31] & 0xFF);
+      
+      p[(i + 31)] = ((byte)w);
+      w >>= 8;
     }
-    paramArrayOfByte1[(j + 31)] = ((byte)(i + (paramArrayOfByte1[(j + 31)] & 0xFF)));
-    return i >> 8;
+    p[(i + 31)] = ((byte)(w + (p[(i + 31)] & 0xFF)));
+    return w >> 8;
   }
   
-  private static final void divmod(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, int paramInt1, byte[] paramArrayOfByte3, int paramInt2)
+  private static final void divmod(byte[] q, byte[] r, int n, byte[] d, int t)
   {
-    int i = 0;
-    int j = (paramArrayOfByte3[(paramInt2 - 1)] & 0xFF) << 8;
-    if (paramInt2 > 1) {
-      j |= paramArrayOfByte3[(paramInt2 - 2)] & 0xFF;
+    int rn = 0;
+    int dt = (d[(t - 1)] & 0xFF) << 8;
+    if (t > 1) {
+      dt |= d[(t - 2)] & 0xFF;
     }
-    while (paramInt1-- >= paramInt2)
+    while (n-- >= t)
     {
-      int k = i << 16 | (paramArrayOfByte2[paramInt1] & 0xFF) << 8;
-      if (paramInt1 > 0) {
-        k |= paramArrayOfByte2[(paramInt1 - 1)] & 0xFF;
+      int z = rn << 16 | (r[n] & 0xFF) << 8;
+      if (n > 0) {
+        z |= r[(n - 1)] & 0xFF;
       }
-      k /= j;
-      i += mula_small(paramArrayOfByte2, paramArrayOfByte2, paramInt1 - paramInt2 + 1, paramArrayOfByte3, paramInt2, -k);
-      paramArrayOfByte1[(paramInt1 - paramInt2 + 1)] = ((byte)(k + i & 0xFF));
-      mula_small(paramArrayOfByte2, paramArrayOfByte2, paramInt1 - paramInt2 + 1, paramArrayOfByte3, paramInt2, -i);
-      i = paramArrayOfByte2[paramInt1] & 0xFF;
-      paramArrayOfByte2[paramInt1] = 0;
+      z /= dt;
+      rn += mula_small(r, r, n - t + 1, d, t, -z);
+      q[(n - t + 1)] = ((byte)(z + rn & 0xFF));
+      mula_small(r, r, n - t + 1, d, t, -rn);
+      rn = r[n] & 0xFF;
+      r[n] = 0;
     }
-    paramArrayOfByte2[(paramInt2 - 1)] = ((byte)i);
+    r[(t - 1)] = ((byte)rn);
   }
   
-  private static final int numsize(byte[] paramArrayOfByte, int paramInt)
+  private static final int numsize(byte[] x, int n)
   {
-    while ((paramInt-- != 0) && (paramArrayOfByte[paramInt] == 0)) {}
-    return paramInt + 1;
+    while ((n-- != 0) && (x[n] == 0)) {}
+    return n + 1;
   }
   
-  private static final byte[] egcd32(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3, byte[] paramArrayOfByte4)
+  private static final byte[] egcd32(byte[] x, byte[] y, byte[] a, byte[] b)
   {
-    int j = 32;
-    for (int m = 0; m < 32; m++)
+    int bn = 32;
+    for (int i = 0; i < 32; i++)
     {
-      int tmp21_20 = 0;
-      paramArrayOfByte2[m] = tmp21_20;
-      paramArrayOfByte1[m] = tmp21_20;
+      int tmp21_20 = 0;y[i] = tmp21_20;x[i] = tmp21_20;
     }
-    paramArrayOfByte1[0] = 1;
-    int i = numsize(paramArrayOfByte3, 32);
-    if (i == 0) {
-      return paramArrayOfByte2;
+    x[0] = 1;
+    int an = numsize(a, 32);
+    if (an == 0) {
+      return y;
     }
-    byte[] arrayOfByte = new byte[32];
+    byte[] temp = new byte[32];
     for (;;)
     {
-      int k = j - i + 1;
-      divmod(arrayOfByte, paramArrayOfByte4, j, paramArrayOfByte3, i);
-      j = numsize(paramArrayOfByte4, j);
-      if (j == 0) {
-        return paramArrayOfByte1;
+      int qn = bn - an + 1;
+      divmod(temp, b, bn, a, an);
+      bn = numsize(b, bn);
+      if (bn == 0) {
+        return x;
       }
-      mula32(paramArrayOfByte2, paramArrayOfByte1, arrayOfByte, k, -1);
-      k = i - j + 1;
-      divmod(arrayOfByte, paramArrayOfByte3, i, paramArrayOfByte4, j);
-      i = numsize(paramArrayOfByte3, i);
-      if (i == 0) {
-        return paramArrayOfByte2;
+      mula32(y, x, temp, qn, -1);
+      
+      qn = an - bn + 1;
+      divmod(temp, a, an, b, bn);
+      an = numsize(a, an);
+      if (an == 0) {
+        return y;
       }
-      mula32(paramArrayOfByte1, paramArrayOfByte2, arrayOfByte, k, -1);
+      mula32(x, y, temp, qn, -1);
     }
   }
   
-  private static final void unpack(Nxt.Curve25519.long10 paramlong10, byte[] paramArrayOfByte)
+  private static final void unpack(Nxt.Curve25519.long10 x, byte[] m)
   {
-    paramlong10._0 = (paramArrayOfByte[0] & 0xFF | (paramArrayOfByte[1] & 0xFF) << 8 | (paramArrayOfByte[2] & 0xFF) << 16 | (paramArrayOfByte[3] & 0xFF & 0x3) << 24);
-    paramlong10._1 = ((paramArrayOfByte[3] & 0xFF & 0xFFFFFFFC) >> 2 | (paramArrayOfByte[4] & 0xFF) << 6 | (paramArrayOfByte[5] & 0xFF) << 14 | (paramArrayOfByte[6] & 0xFF & 0x7) << 22);
-    paramlong10._2 = ((paramArrayOfByte[6] & 0xFF & 0xFFFFFFF8) >> 3 | (paramArrayOfByte[7] & 0xFF) << 5 | (paramArrayOfByte[8] & 0xFF) << 13 | (paramArrayOfByte[9] & 0xFF & 0x1F) << 21);
-    paramlong10._3 = ((paramArrayOfByte[9] & 0xFF & 0xFFFFFFE0) >> 5 | (paramArrayOfByte[10] & 0xFF) << 3 | (paramArrayOfByte[11] & 0xFF) << 11 | (paramArrayOfByte[12] & 0xFF & 0x3F) << 19);
-    paramlong10._4 = ((paramArrayOfByte[12] & 0xFF & 0xFFFFFFC0) >> 6 | (paramArrayOfByte[13] & 0xFF) << 2 | (paramArrayOfByte[14] & 0xFF) << 10 | (paramArrayOfByte[15] & 0xFF) << 18);
-    paramlong10._5 = (paramArrayOfByte[16] & 0xFF | (paramArrayOfByte[17] & 0xFF) << 8 | (paramArrayOfByte[18] & 0xFF) << 16 | (paramArrayOfByte[19] & 0xFF & 0x1) << 24);
-    paramlong10._6 = ((paramArrayOfByte[19] & 0xFF & 0xFFFFFFFE) >> 1 | (paramArrayOfByte[20] & 0xFF) << 7 | (paramArrayOfByte[21] & 0xFF) << 15 | (paramArrayOfByte[22] & 0xFF & 0x7) << 23);
-    paramlong10._7 = ((paramArrayOfByte[22] & 0xFF & 0xFFFFFFF8) >> 3 | (paramArrayOfByte[23] & 0xFF) << 5 | (paramArrayOfByte[24] & 0xFF) << 13 | (paramArrayOfByte[25] & 0xFF & 0xF) << 21);
-    paramlong10._8 = ((paramArrayOfByte[25] & 0xFF & 0xFFFFFFF0) >> 4 | (paramArrayOfByte[26] & 0xFF) << 4 | (paramArrayOfByte[27] & 0xFF) << 12 | (paramArrayOfByte[28] & 0xFF & 0x3F) << 20);
-    paramlong10._9 = ((paramArrayOfByte[28] & 0xFF & 0xFFFFFFC0) >> 6 | (paramArrayOfByte[29] & 0xFF) << 2 | (paramArrayOfByte[30] & 0xFF) << 10 | (paramArrayOfByte[31] & 0xFF) << 18);
+    x._0 = (m[0] & 0xFF | (m[1] & 0xFF) << 8 | (m[2] & 0xFF) << 16 | (m[3] & 0xFF & 0x3) << 24);
+    
+    x._1 = ((m[3] & 0xFF & 0xFFFFFFFC) >> 2 | (m[4] & 0xFF) << 6 | (m[5] & 0xFF) << 14 | (m[6] & 0xFF & 0x7) << 22);
+    
+    x._2 = ((m[6] & 0xFF & 0xFFFFFFF8) >> 3 | (m[7] & 0xFF) << 5 | (m[8] & 0xFF) << 13 | (m[9] & 0xFF & 0x1F) << 21);
+    
+    x._3 = ((m[9] & 0xFF & 0xFFFFFFE0) >> 5 | (m[10] & 0xFF) << 3 | (m[11] & 0xFF) << 11 | (m[12] & 0xFF & 0x3F) << 19);
+    
+    x._4 = ((m[12] & 0xFF & 0xFFFFFFC0) >> 6 | (m[13] & 0xFF) << 2 | (m[14] & 0xFF) << 10 | (m[15] & 0xFF) << 18);
+    
+    x._5 = (m[16] & 0xFF | (m[17] & 0xFF) << 8 | (m[18] & 0xFF) << 16 | (m[19] & 0xFF & 0x1) << 24);
+    
+    x._6 = ((m[19] & 0xFF & 0xFFFFFFFE) >> 1 | (m[20] & 0xFF) << 7 | (m[21] & 0xFF) << 15 | (m[22] & 0xFF & 0x7) << 23);
+    
+    x._7 = ((m[22] & 0xFF & 0xFFFFFFF8) >> 3 | (m[23] & 0xFF) << 5 | (m[24] & 0xFF) << 13 | (m[25] & 0xFF & 0xF) << 21);
+    
+    x._8 = ((m[25] & 0xFF & 0xFFFFFFF0) >> 4 | (m[26] & 0xFF) << 4 | (m[27] & 0xFF) << 12 | (m[28] & 0xFF & 0x3F) << 20);
+    
+    x._9 = ((m[28] & 0xFF & 0xFFFFFFC0) >> 6 | (m[29] & 0xFF) << 2 | (m[30] & 0xFF) << 10 | (m[31] & 0xFF) << 18);
   }
   
-  private static final boolean is_overflow(Nxt.Curve25519.long10 paramlong10)
+  private static final boolean is_overflow(Nxt.Curve25519.long10 x)
   {
-    return ((paramlong10._0 > 67108844L) && ((paramlong10._1 & paramlong10._3 & paramlong10._5 & paramlong10._7 & paramlong10._9) == 33554431L) && ((paramlong10._2 & paramlong10._4 & paramlong10._6 & paramlong10._8) == 67108863L)) || (paramlong10._9 > 33554431L);
+    return ((x._0 > 67108844L) && ((x._1 & x._3 & x._5 & x._7 & x._9) == 33554431L) && ((x._2 & x._4 & x._6 & x._8) == 67108863L)) || (x._9 > 33554431L);
   }
   
-  private static final void pack(Nxt.Curve25519.long10 paramlong10, byte[] paramArrayOfByte)
+  private static final void pack(Nxt.Curve25519.long10 x, byte[] m)
   {
-    int i = 0;
-    int j = 0;
-    i = (is_overflow(paramlong10) ? 1 : 0) - (paramlong10._9 < 0L ? 1 : 0);
-    j = i * -33554432;
-    i *= 19;
-    long l = i + paramlong10._0 + (paramlong10._1 << 26);
-    paramArrayOfByte[0] = ((byte)(int)l);
-    paramArrayOfByte[1] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[2] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[3] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + (paramlong10._2 << 19);
-    paramArrayOfByte[4] = ((byte)(int)l);
-    paramArrayOfByte[5] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[6] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[7] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + (paramlong10._3 << 13);
-    paramArrayOfByte[8] = ((byte)(int)l);
-    paramArrayOfByte[9] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[10] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[11] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + (paramlong10._4 << 6);
-    paramArrayOfByte[12] = ((byte)(int)l);
-    paramArrayOfByte[13] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[14] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[15] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + paramlong10._5 + (paramlong10._6 << 25);
-    paramArrayOfByte[16] = ((byte)(int)l);
-    paramArrayOfByte[17] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[18] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[19] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + (paramlong10._7 << 19);
-    paramArrayOfByte[20] = ((byte)(int)l);
-    paramArrayOfByte[21] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[22] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[23] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + (paramlong10._8 << 12);
-    paramArrayOfByte[24] = ((byte)(int)l);
-    paramArrayOfByte[25] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[26] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[27] = ((byte)(int)(l >> 24));
-    l = (l >> 32) + (paramlong10._9 + j << 6);
-    paramArrayOfByte[28] = ((byte)(int)l);
-    paramArrayOfByte[29] = ((byte)(int)(l >> 8));
-    paramArrayOfByte[30] = ((byte)(int)(l >> 16));
-    paramArrayOfByte[31] = ((byte)(int)(l >> 24));
+    int ld = 0;int ud = 0;
+    
+    ld = (is_overflow(x) ? 1 : 0) - (x._9 < 0L ? 1 : 0);
+    ud = ld * -33554432;
+    ld *= 19;
+    long t = ld + x._0 + (x._1 << 26);
+    m[0] = ((byte)(int)t);
+    m[1] = ((byte)(int)(t >> 8));
+    m[2] = ((byte)(int)(t >> 16));
+    m[3] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + (x._2 << 19);
+    m[4] = ((byte)(int)t);
+    m[5] = ((byte)(int)(t >> 8));
+    m[6] = ((byte)(int)(t >> 16));
+    m[7] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + (x._3 << 13);
+    m[8] = ((byte)(int)t);
+    m[9] = ((byte)(int)(t >> 8));
+    m[10] = ((byte)(int)(t >> 16));
+    m[11] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + (x._4 << 6);
+    m[12] = ((byte)(int)t);
+    m[13] = ((byte)(int)(t >> 8));
+    m[14] = ((byte)(int)(t >> 16));
+    m[15] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + x._5 + (x._6 << 25);
+    m[16] = ((byte)(int)t);
+    m[17] = ((byte)(int)(t >> 8));
+    m[18] = ((byte)(int)(t >> 16));
+    m[19] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + (x._7 << 19);
+    m[20] = ((byte)(int)t);
+    m[21] = ((byte)(int)(t >> 8));
+    m[22] = ((byte)(int)(t >> 16));
+    m[23] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + (x._8 << 12);
+    m[24] = ((byte)(int)t);
+    m[25] = ((byte)(int)(t >> 8));
+    m[26] = ((byte)(int)(t >> 16));
+    m[27] = ((byte)(int)(t >> 24));
+    t = (t >> 32) + (x._9 + ud << 6);
+    m[28] = ((byte)(int)t);
+    m[29] = ((byte)(int)(t >> 8));
+    m[30] = ((byte)(int)(t >> 16));
+    m[31] = ((byte)(int)(t >> 24));
   }
   
-  private static final void cpy(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102)
+  private static final void cpy(Nxt.Curve25519.long10 out, Nxt.Curve25519.long10 in)
   {
-    paramlong101._0 = paramlong102._0;
-    paramlong101._1 = paramlong102._1;
-    paramlong101._2 = paramlong102._2;
-    paramlong101._3 = paramlong102._3;
-    paramlong101._4 = paramlong102._4;
-    paramlong101._5 = paramlong102._5;
-    paramlong101._6 = paramlong102._6;
-    paramlong101._7 = paramlong102._7;
-    paramlong101._8 = paramlong102._8;
-    paramlong101._9 = paramlong102._9;
+    out._0 = in._0;out._1 = in._1;
+    out._2 = in._2;out._3 = in._3;
+    out._4 = in._4;out._5 = in._5;
+    out._6 = in._6;out._7 = in._7;
+    out._8 = in._8;out._9 = in._9;
   }
   
-  private static final void set(Nxt.Curve25519.long10 paramlong10, int paramInt)
+  private static final void set(Nxt.Curve25519.long10 out, int in)
   {
-    paramlong10._0 = paramInt;
-    paramlong10._1 = 0L;
-    paramlong10._2 = 0L;
-    paramlong10._3 = 0L;
-    paramlong10._4 = 0L;
-    paramlong10._5 = 0L;
-    paramlong10._6 = 0L;
-    paramlong10._7 = 0L;
-    paramlong10._8 = 0L;
-    paramlong10._9 = 0L;
+    out._0 = in;out._1 = 0L;
+    out._2 = 0L;out._3 = 0L;
+    out._4 = 0L;out._5 = 0L;
+    out._6 = 0L;out._7 = 0L;
+    out._8 = 0L;out._9 = 0L;
   }
   
-  private static final void add(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103)
+  private static final void add(Nxt.Curve25519.long10 xy, Nxt.Curve25519.long10 x, Nxt.Curve25519.long10 y)
   {
-    paramlong102._0 += paramlong103._0;
-    paramlong102._1 += paramlong103._1;
-    paramlong102._2 += paramlong103._2;
-    paramlong102._3 += paramlong103._3;
-    paramlong102._4 += paramlong103._4;
-    paramlong102._5 += paramlong103._5;
-    paramlong102._6 += paramlong103._6;
-    paramlong102._7 += paramlong103._7;
-    paramlong102._8 += paramlong103._8;
-    paramlong102._9 += paramlong103._9;
+    x._0 += y._0;x._1 += y._1;
+    x._2 += y._2;x._3 += y._3;
+    x._4 += y._4;x._5 += y._5;
+    x._6 += y._6;x._7 += y._7;
+    x._8 += y._8;x._9 += y._9;
   }
   
-  private static final void sub(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103)
+  private static final void sub(Nxt.Curve25519.long10 xy, Nxt.Curve25519.long10 x, Nxt.Curve25519.long10 y)
   {
-    paramlong102._0 -= paramlong103._0;
-    paramlong102._1 -= paramlong103._1;
-    paramlong102._2 -= paramlong103._2;
-    paramlong102._3 -= paramlong103._3;
-    paramlong102._4 -= paramlong103._4;
-    paramlong102._5 -= paramlong103._5;
-    paramlong102._6 -= paramlong103._6;
-    paramlong102._7 -= paramlong103._7;
-    paramlong102._8 -= paramlong103._8;
-    paramlong102._9 -= paramlong103._9;
+    x._0 -= y._0;x._1 -= y._1;
+    x._2 -= y._2;x._3 -= y._3;
+    x._4 -= y._4;x._5 -= y._5;
+    x._6 -= y._6;x._7 -= y._7;
+    x._8 -= y._8;x._9 -= y._9;
   }
   
-  private static final Nxt.Curve25519.long10 mul_small(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, long paramLong)
+  private static final Nxt.Curve25519.long10 mul_small(Nxt.Curve25519.long10 xy, Nxt.Curve25519.long10 x, long y)
   {
-    long l = paramlong102._8 * paramLong;
-    paramlong101._8 = (l & 0x3FFFFFF);
-    l = (l >> 26) + paramlong102._9 * paramLong;
-    paramlong101._9 = (l & 0x1FFFFFF);
-    l = 19L * (l >> 25) + paramlong102._0 * paramLong;
-    paramlong101._0 = (l & 0x3FFFFFF);
-    l = (l >> 26) + paramlong102._1 * paramLong;
-    paramlong101._1 = (l & 0x1FFFFFF);
-    l = (l >> 25) + paramlong102._2 * paramLong;
-    paramlong101._2 = (l & 0x3FFFFFF);
-    l = (l >> 26) + paramlong102._3 * paramLong;
-    paramlong101._3 = (l & 0x1FFFFFF);
-    l = (l >> 25) + paramlong102._4 * paramLong;
-    paramlong101._4 = (l & 0x3FFFFFF);
-    l = (l >> 26) + paramlong102._5 * paramLong;
-    paramlong101._5 = (l & 0x1FFFFFF);
-    l = (l >> 25) + paramlong102._6 * paramLong;
-    paramlong101._6 = (l & 0x3FFFFFF);
-    l = (l >> 26) + paramlong102._7 * paramLong;
-    paramlong101._7 = (l & 0x1FFFFFF);
-    l = (l >> 25) + paramlong101._8;
-    paramlong101._8 = (l & 0x3FFFFFF);
-    paramlong101._9 += (l >> 26);
-    return paramlong101;
+    long t = x._8 * y;
+    xy._8 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x._9 * y;
+    xy._9 = (t & 0x1FFFFFF);
+    t = 19L * (t >> 25) + x._0 * y;
+    xy._0 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x._1 * y;
+    xy._1 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x._2 * y;
+    xy._2 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x._3 * y;
+    xy._3 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x._4 * y;
+    xy._4 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x._5 * y;
+    xy._5 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x._6 * y;
+    xy._6 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x._7 * y;
+    xy._7 = (t & 0x1FFFFFF);
+    t = (t >> 25) + xy._8;
+    xy._8 = (t & 0x3FFFFFF);
+    xy._9 += (t >> 26);
+    return xy;
   }
   
-  private static final Nxt.Curve25519.long10 mul(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103)
+  private static final Nxt.Curve25519.long10 mul(Nxt.Curve25519.long10 xy, Nxt.Curve25519.long10 x, Nxt.Curve25519.long10 y)
   {
-    long l1 = paramlong102._0;
-    long l2 = paramlong102._1;
-    long l3 = paramlong102._2;
-    long l4 = paramlong102._3;
-    long l5 = paramlong102._4;
-    long l6 = paramlong102._5;
-    long l7 = paramlong102._6;
-    long l8 = paramlong102._7;
-    long l9 = paramlong102._8;
-    long l10 = paramlong102._9;
-    long l11 = paramlong103._0;
-    long l12 = paramlong103._1;
-    long l13 = paramlong103._2;
-    long l14 = paramlong103._3;
-    long l15 = paramlong103._4;
-    long l16 = paramlong103._5;
-    long l17 = paramlong103._6;
-    long l18 = paramlong103._7;
-    long l19 = paramlong103._8;
-    long l20 = paramlong103._9;
-    long l21 = l1 * l19 + l3 * l17 + l5 * l15 + l7 * l13 + l9 * l11 + 2L * (l2 * l18 + l4 * l16 + l6 * l14 + l8 * l12) + 38L * (l10 * l20);
-    paramlong101._8 = (l21 & 0x3FFFFFF);
-    l21 = (l21 >> 26) + l1 * l20 + l2 * l19 + l3 * l18 + l4 * l17 + l5 * l16 + l6 * l15 + l7 * l14 + l8 * l13 + l9 * l12 + l10 * l11;
-    paramlong101._9 = (l21 & 0x1FFFFFF);
-    l21 = l1 * l11 + 19L * ((l21 >> 25) + l3 * l19 + l5 * l17 + l7 * l15 + l9 * l13) + 38L * (l2 * l20 + l4 * l18 + l6 * l16 + l8 * l14 + l10 * l12);
-    paramlong101._0 = (l21 & 0x3FFFFFF);
-    l21 = (l21 >> 26) + l1 * l12 + l2 * l11 + 19L * (l3 * l20 + l4 * l19 + l5 * l18 + l6 * l17 + l7 * l16 + l8 * l15 + l9 * l14 + l10 * l13);
-    paramlong101._1 = (l21 & 0x1FFFFFF);
-    l21 = (l21 >> 25) + l1 * l13 + l3 * l11 + 19L * (l5 * l19 + l7 * l17 + l9 * l15) + 2L * (l2 * l12) + 38L * (l4 * l20 + l6 * l18 + l8 * l16 + l10 * l14);
-    paramlong101._2 = (l21 & 0x3FFFFFF);
-    l21 = (l21 >> 26) + l1 * l14 + l2 * l13 + l3 * l12 + l4 * l11 + 19L * (l5 * l20 + l6 * l19 + l7 * l18 + l8 * l17 + l9 * l16 + l10 * l15);
-    paramlong101._3 = (l21 & 0x1FFFFFF);
-    l21 = (l21 >> 25) + l1 * l15 + l3 * l13 + l5 * l11 + 19L * (l7 * l19 + l9 * l17) + 2L * (l2 * l14 + l4 * l12) + 38L * (l6 * l20 + l8 * l18 + l10 * l16);
-    paramlong101._4 = (l21 & 0x3FFFFFF);
-    l21 = (l21 >> 26) + l1 * l16 + l2 * l15 + l3 * l14 + l4 * l13 + l5 * l12 + l6 * l11 + 19L * (l7 * l20 + l8 * l19 + l9 * l18 + l10 * l17);
-    paramlong101._5 = (l21 & 0x1FFFFFF);
-    l21 = (l21 >> 25) + l1 * l17 + l3 * l15 + l5 * l13 + l7 * l11 + 19L * (l9 * l19) + 2L * (l2 * l16 + l4 * l14 + l6 * l12) + 38L * (l8 * l20 + l10 * l18);
-    paramlong101._6 = (l21 & 0x3FFFFFF);
-    l21 = (l21 >> 26) + l1 * l18 + l2 * l17 + l3 * l16 + l4 * l15 + l5 * l14 + l6 * l13 + l7 * l12 + l8 * l11 + 19L * (l9 * l20 + l10 * l19);
-    paramlong101._7 = (l21 & 0x1FFFFFF);
-    l21 = (l21 >> 25) + paramlong101._8;
-    paramlong101._8 = (l21 & 0x3FFFFFF);
-    paramlong101._9 += (l21 >> 26);
-    return paramlong101;
+    long x_0 = x._0;long x_1 = x._1;long x_2 = x._2;long x_3 = x._3;long x_4 = x._4;
+    long x_5 = x._5;long x_6 = x._6;long x_7 = x._7;long x_8 = x._8;long x_9 = x._9;
+    
+    long y_0 = y._0;long y_1 = y._1;long y_2 = y._2;long y_3 = y._3;long y_4 = y._4;
+    long y_5 = y._5;long y_6 = y._6;long y_7 = y._7;long y_8 = y._8;long y_9 = y._9;
+    
+    long t = x_0 * y_8 + x_2 * y_6 + x_4 * y_4 + x_6 * y_2 + x_8 * y_0 + 2L * (x_1 * y_7 + x_3 * y_5 + x_5 * y_3 + x_7 * y_1) + 38L * (x_9 * y_9);
+    
+
+
+    xy._8 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x_0 * y_9 + x_1 * y_8 + x_2 * y_7 + x_3 * y_6 + x_4 * y_5 + x_5 * y_4 + x_6 * y_3 + x_7 * y_2 + x_8 * y_1 + x_9 * y_0;
+    
+
+
+    xy._9 = (t & 0x1FFFFFF);
+    t = x_0 * y_0 + 19L * ((t >> 25) + x_2 * y_8 + x_4 * y_6 + x_6 * y_4 + x_8 * y_2) + 38L * (x_1 * y_9 + x_3 * y_7 + x_5 * y_5 + x_7 * y_3 + x_9 * y_1);
+    
+
+
+    xy._0 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x_0 * y_1 + x_1 * y_0 + 19L * (x_2 * y_9 + x_3 * y_8 + x_4 * y_7 + x_5 * y_6 + x_6 * y_5 + x_7 * y_4 + x_8 * y_3 + x_9 * y_2);
+    
+
+
+    xy._1 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x_0 * y_2 + x_2 * y_0 + 19L * (x_4 * y_8 + x_6 * y_6 + x_8 * y_4) + 2L * (x_1 * y_1) + 38L * (x_3 * y_9 + x_5 * y_7 + x_7 * y_5 + x_9 * y_3);
+    
+
+
+    xy._2 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x_0 * y_3 + x_1 * y_2 + x_2 * y_1 + x_3 * y_0 + 19L * (x_4 * y_9 + x_5 * y_8 + x_6 * y_7 + x_7 * y_6 + x_8 * y_5 + x_9 * y_4);
+    
+
+
+    xy._3 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x_0 * y_4 + x_2 * y_2 + x_4 * y_0 + 19L * (x_6 * y_8 + x_8 * y_6) + 2L * (x_1 * y_3 + x_3 * y_1) + 38L * (x_5 * y_9 + x_7 * y_7 + x_9 * y_5);
+    
+
+
+    xy._4 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x_0 * y_5 + x_1 * y_4 + x_2 * y_3 + x_3 * y_2 + x_4 * y_1 + x_5 * y_0 + 19L * (x_6 * y_9 + x_7 * y_8 + x_8 * y_7 + x_9 * y_6);
+    
+
+
+    xy._5 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x_0 * y_6 + x_2 * y_4 + x_4 * y_2 + x_6 * y_0 + 19L * (x_8 * y_8) + 2L * (x_1 * y_5 + x_3 * y_3 + x_5 * y_1) + 38L * (x_7 * y_9 + x_9 * y_7);
+    
+
+
+    xy._6 = (t & 0x3FFFFFF);
+    t = (t >> 26) + x_0 * y_7 + x_1 * y_6 + x_2 * y_5 + x_3 * y_4 + x_4 * y_3 + x_5 * y_2 + x_6 * y_1 + x_7 * y_0 + 19L * (x_8 * y_9 + x_9 * y_8);
+    
+
+
+    xy._7 = (t & 0x1FFFFFF);
+    t = (t >> 25) + xy._8;
+    xy._8 = (t & 0x3FFFFFF);
+    xy._9 += (t >> 26);
+    return xy;
   }
   
-  private static final Nxt.Curve25519.long10 sqr(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102)
+  private static final Nxt.Curve25519.long10 sqr(Nxt.Curve25519.long10 x2, Nxt.Curve25519.long10 x)
   {
-    long l1 = paramlong102._0;
-    long l2 = paramlong102._1;
-    long l3 = paramlong102._2;
-    long l4 = paramlong102._3;
-    long l5 = paramlong102._4;
-    long l6 = paramlong102._5;
-    long l7 = paramlong102._6;
-    long l8 = paramlong102._7;
-    long l9 = paramlong102._8;
-    long l10 = paramlong102._9;
-    long l11 = l5 * l5 + 2L * (l1 * l9 + l3 * l7) + 38L * (l10 * l10) + 4L * (l2 * l8 + l4 * l6);
-    paramlong101._8 = (l11 & 0x3FFFFFF);
-    l11 = (l11 >> 26) + 2L * (l1 * l10 + l2 * l9 + l3 * l8 + l4 * l7 + l5 * l6);
-    paramlong101._9 = (l11 & 0x1FFFFFF);
-    l11 = 19L * (l11 >> 25) + l1 * l1 + 38L * (l3 * l9 + l5 * l7 + l6 * l6) + 76L * (l2 * l10 + l4 * l8);
-    paramlong101._0 = (l11 & 0x3FFFFFF);
-    l11 = (l11 >> 26) + 2L * (l1 * l2) + 38L * (l3 * l10 + l4 * l9 + l5 * l8 + l6 * l7);
-    paramlong101._1 = (l11 & 0x1FFFFFF);
-    l11 = (l11 >> 25) + 19L * (l7 * l7) + 2L * (l1 * l3 + l2 * l2) + 38L * (l5 * l9) + 76L * (l4 * l10 + l6 * l8);
-    paramlong101._2 = (l11 & 0x3FFFFFF);
-    l11 = (l11 >> 26) + 2L * (l1 * l4 + l2 * l3) + 38L * (l5 * l10 + l6 * l9 + l7 * l8);
-    paramlong101._3 = (l11 & 0x1FFFFFF);
-    l11 = (l11 >> 25) + l3 * l3 + 2L * (l1 * l5) + 38L * (l7 * l9 + l8 * l8) + 4L * (l2 * l4) + 76L * (l6 * l10);
-    paramlong101._4 = (l11 & 0x3FFFFFF);
-    l11 = (l11 >> 26) + 2L * (l1 * l6 + l2 * l5 + l3 * l4) + 38L * (l7 * l10 + l8 * l9);
-    paramlong101._5 = (l11 & 0x1FFFFFF);
-    l11 = (l11 >> 25) + 19L * (l9 * l9) + 2L * (l1 * l7 + l3 * l5 + l4 * l4) + 4L * (l2 * l6) + 76L * (l8 * l10);
-    paramlong101._6 = (l11 & 0x3FFFFFF);
-    l11 = (l11 >> 26) + 2L * (l1 * l8 + l2 * l7 + l3 * l6 + l4 * l5) + 38L * (l9 * l10);
-    paramlong101._7 = (l11 & 0x1FFFFFF);
-    l11 = (l11 >> 25) + paramlong101._8;
-    paramlong101._8 = (l11 & 0x3FFFFFF);
-    paramlong101._9 += (l11 >> 26);
-    return paramlong101;
+    long x_0 = x._0;long x_1 = x._1;long x_2 = x._2;long x_3 = x._3;long x_4 = x._4;
+    long x_5 = x._5;long x_6 = x._6;long x_7 = x._7;long x_8 = x._8;long x_9 = x._9;
+    
+    long t = x_4 * x_4 + 2L * (x_0 * x_8 + x_2 * x_6) + 38L * (x_9 * x_9) + 4L * (x_1 * x_7 + x_3 * x_5);
+    
+    x2._8 = (t & 0x3FFFFFF);
+    t = (t >> 26) + 2L * (x_0 * x_9 + x_1 * x_8 + x_2 * x_7 + x_3 * x_6 + x_4 * x_5);
+    
+    x2._9 = (t & 0x1FFFFFF);
+    t = 19L * (t >> 25) + x_0 * x_0 + 38L * (x_2 * x_8 + x_4 * x_6 + x_5 * x_5) + 76L * (x_1 * x_9 + x_3 * x_7);
+    
+
+    x2._0 = (t & 0x3FFFFFF);
+    t = (t >> 26) + 2L * (x_0 * x_1) + 38L * (x_2 * x_9 + x_3 * x_8 + x_4 * x_7 + x_5 * x_6);
+    
+    x2._1 = (t & 0x1FFFFFF);
+    t = (t >> 25) + 19L * (x_6 * x_6) + 2L * (x_0 * x_2 + x_1 * x_1) + 38L * (x_4 * x_8) + 76L * (x_3 * x_9 + x_5 * x_7);
+    
+
+    x2._2 = (t & 0x3FFFFFF);
+    t = (t >> 26) + 2L * (x_0 * x_3 + x_1 * x_2) + 38L * (x_4 * x_9 + x_5 * x_8 + x_6 * x_7);
+    
+    x2._3 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x_2 * x_2 + 2L * (x_0 * x_4) + 38L * (x_6 * x_8 + x_7 * x_7) + 4L * (x_1 * x_3) + 76L * (x_5 * x_9);
+    
+
+    x2._4 = (t & 0x3FFFFFF);
+    t = (t >> 26) + 2L * (x_0 * x_5 + x_1 * x_4 + x_2 * x_3) + 38L * (x_6 * x_9 + x_7 * x_8);
+    
+    x2._5 = (t & 0x1FFFFFF);
+    t = (t >> 25) + 19L * (x_8 * x_8) + 2L * (x_0 * x_6 + x_2 * x_4 + x_3 * x_3) + 4L * (x_1 * x_5) + 76L * (x_7 * x_9);
+    
+
+    x2._6 = (t & 0x3FFFFFF);
+    t = (t >> 26) + 2L * (x_0 * x_7 + x_1 * x_6 + x_2 * x_5 + x_3 * x_4) + 38L * (x_8 * x_9);
+    
+    x2._7 = (t & 0x1FFFFFF);
+    t = (t >> 25) + x2._8;
+    x2._8 = (t & 0x3FFFFFF);
+    x2._9 += (t >> 26);
+    return x2;
   }
   
-  private static final void recip(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, int paramInt)
+  private static final void recip(Nxt.Curve25519.long10 y, Nxt.Curve25519.long10 x, int sqrtassist)
   {
-    Nxt.Curve25519.long10 locallong101 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong102 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong103 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong104 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong105 = new Nxt.Curve25519.long10();
-    sqr(locallong102, paramlong102);
-    sqr(locallong103, locallong102);
-    sqr(locallong101, locallong103);
-    mul(locallong103, locallong101, paramlong102);
-    mul(locallong101, locallong103, locallong102);
-    sqr(locallong102, locallong101);
-    mul(locallong104, locallong102, locallong103);
-    sqr(locallong102, locallong104);
-    sqr(locallong103, locallong102);
-    sqr(locallong102, locallong103);
-    sqr(locallong103, locallong102);
-    sqr(locallong102, locallong103);
-    mul(locallong103, locallong102, locallong104);
-    sqr(locallong102, locallong103);
-    sqr(locallong104, locallong102);
+    Nxt.Curve25519.long10 t0 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t1 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t2 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t3 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t4 = new Nxt.Curve25519.long10();
+    
+
+    sqr(t1, x);
+    sqr(t2, t1);
+    sqr(t0, t2);
+    mul(t2, t0, x);
+    mul(t0, t2, t1);
+    sqr(t1, t0);
+    mul(t3, t1, t2);
+    
+    sqr(t1, t3);
+    sqr(t2, t1);
+    sqr(t1, t2);
+    sqr(t2, t1);
+    sqr(t1, t2);
+    mul(t2, t1, t3);
+    sqr(t1, t2);
+    sqr(t3, t1);
     for (int i = 1; i < 5; i++)
     {
-      sqr(locallong102, locallong104);
-      sqr(locallong104, locallong102);
+      sqr(t1, t3);
+      sqr(t3, t1);
     }
-    mul(locallong102, locallong104, locallong103);
-    sqr(locallong104, locallong102);
-    sqr(locallong105, locallong104);
+    mul(t1, t3, t2);
+    sqr(t3, t1);
+    sqr(t4, t3);
     for (i = 1; i < 10; i++)
     {
-      sqr(locallong104, locallong105);
-      sqr(locallong105, locallong104);
+      sqr(t3, t4);
+      sqr(t4, t3);
     }
-    mul(locallong104, locallong105, locallong102);
+    mul(t3, t4, t1);
     for (i = 0; i < 5; i++)
     {
-      sqr(locallong102, locallong104);
-      sqr(locallong104, locallong102);
+      sqr(t1, t3);
+      sqr(t3, t1);
     }
-    mul(locallong102, locallong104, locallong103);
-    sqr(locallong103, locallong102);
-    sqr(locallong104, locallong103);
+    mul(t1, t3, t2);
+    sqr(t2, t1);
+    sqr(t3, t2);
     for (i = 1; i < 25; i++)
     {
-      sqr(locallong103, locallong104);
-      sqr(locallong104, locallong103);
+      sqr(t2, t3);
+      sqr(t3, t2);
     }
-    mul(locallong103, locallong104, locallong102);
-    sqr(locallong104, locallong103);
-    sqr(locallong105, locallong104);
+    mul(t2, t3, t1);
+    sqr(t3, t2);
+    sqr(t4, t3);
     for (i = 1; i < 50; i++)
     {
-      sqr(locallong104, locallong105);
-      sqr(locallong105, locallong104);
+      sqr(t3, t4);
+      sqr(t4, t3);
     }
-    mul(locallong104, locallong105, locallong103);
+    mul(t3, t4, t2);
     for (i = 0; i < 25; i++)
     {
-      sqr(locallong105, locallong104);
-      sqr(locallong104, locallong105);
+      sqr(t4, t3);
+      sqr(t3, t4);
     }
-    mul(locallong103, locallong104, locallong102);
-    sqr(locallong102, locallong103);
-    sqr(locallong103, locallong102);
-    if (paramInt != 0)
+    mul(t2, t3, t1);
+    sqr(t1, t2);
+    sqr(t2, t1);
+    if (sqrtassist != 0)
     {
-      mul(paramlong101, paramlong102, locallong103);
+      mul(y, x, t2);
     }
     else
     {
-      sqr(locallong102, locallong103);
-      sqr(locallong103, locallong102);
-      sqr(locallong102, locallong103);
-      mul(paramlong101, locallong102, locallong101);
+      sqr(t1, t2);
+      sqr(t2, t1);
+      sqr(t1, t2);
+      mul(y, t1, t0);
     }
   }
   
-  private static final int is_negative(Nxt.Curve25519.long10 paramlong10)
+  private static final int is_negative(Nxt.Curve25519.long10 x)
   {
-    return (int)(((is_overflow(paramlong10)) || (paramlong10._9 < 0L) ? 1 : 0) ^ paramlong10._0 & 1L);
+    return (int)(((is_overflow(x)) || (x._9 < 0L) ? 1 : 0) ^ x._0 & 1L);
   }
   
-  private static final void sqrt(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102)
+  private static final void sqrt(Nxt.Curve25519.long10 x, Nxt.Curve25519.long10 u)
   {
-    Nxt.Curve25519.long10 locallong101 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong102 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong103 = new Nxt.Curve25519.long10();
-    add(locallong102, paramlong102, paramlong102);
-    recip(locallong101, locallong102, 1);
-    sqr(paramlong101, locallong101);
-    mul(locallong103, locallong102, paramlong101);
-    locallong103._0 -= 1L;
-    mul(locallong102, locallong101, locallong103);
-    mul(paramlong101, paramlong102, locallong102);
+    Nxt.Curve25519.long10 v = new Nxt.Curve25519.long10();Nxt.Curve25519.long10 t1 = new Nxt.Curve25519.long10();Nxt.Curve25519.long10 t2 = new Nxt.Curve25519.long10();
+    add(t1, u, u);
+    recip(v, t1, 1);
+    sqr(x, v);
+    mul(t2, t1, x);
+    t2._0 -= 1L;
+    mul(t1, v, t2);
+    mul(x, u, t1);
   }
   
-  private static final void mont_prep(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103, Nxt.Curve25519.long10 paramlong104)
+  private static final void mont_prep(Nxt.Curve25519.long10 t1, Nxt.Curve25519.long10 t2, Nxt.Curve25519.long10 ax, Nxt.Curve25519.long10 az)
   {
-    add(paramlong101, paramlong103, paramlong104);
-    sub(paramlong102, paramlong103, paramlong104);
+    add(t1, ax, az);
+    sub(t2, ax, az);
   }
   
-  private static final void mont_add(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103, Nxt.Curve25519.long10 paramlong104, Nxt.Curve25519.long10 paramlong105, Nxt.Curve25519.long10 paramlong106, Nxt.Curve25519.long10 paramlong107)
+  private static final void mont_add(Nxt.Curve25519.long10 t1, Nxt.Curve25519.long10 t2, Nxt.Curve25519.long10 t3, Nxt.Curve25519.long10 t4, Nxt.Curve25519.long10 ax, Nxt.Curve25519.long10 az, Nxt.Curve25519.long10 dx)
   {
-    mul(paramlong105, paramlong102, paramlong103);
-    mul(paramlong106, paramlong101, paramlong104);
-    add(paramlong101, paramlong105, paramlong106);
-    sub(paramlong102, paramlong105, paramlong106);
-    sqr(paramlong105, paramlong101);
-    sqr(paramlong101, paramlong102);
-    mul(paramlong106, paramlong101, paramlong107);
+    mul(ax, t2, t3);
+    mul(az, t1, t4);
+    add(t1, ax, az);
+    sub(t2, ax, az);
+    sqr(ax, t1);
+    sqr(t1, t2);
+    mul(az, t1, dx);
   }
   
-  private static final void mont_dbl(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103, Nxt.Curve25519.long10 paramlong104, Nxt.Curve25519.long10 paramlong105, Nxt.Curve25519.long10 paramlong106)
+  private static final void mont_dbl(Nxt.Curve25519.long10 t1, Nxt.Curve25519.long10 t2, Nxt.Curve25519.long10 t3, Nxt.Curve25519.long10 t4, Nxt.Curve25519.long10 bx, Nxt.Curve25519.long10 bz)
   {
-    sqr(paramlong101, paramlong103);
-    sqr(paramlong102, paramlong104);
-    mul(paramlong105, paramlong101, paramlong102);
-    sub(paramlong102, paramlong101, paramlong102);
-    mul_small(paramlong106, paramlong102, 121665L);
-    add(paramlong101, paramlong101, paramlong106);
-    mul(paramlong106, paramlong101, paramlong102);
+    sqr(t1, t3);
+    sqr(t2, t4);
+    mul(bx, t1, t2);
+    sub(t2, t1, t2);
+    mul_small(bz, t2, 121665L);
+    add(t1, t1, bz);
+    mul(bz, t1, t2);
   }
   
-  private static final void x_to_y2(Nxt.Curve25519.long10 paramlong101, Nxt.Curve25519.long10 paramlong102, Nxt.Curve25519.long10 paramlong103)
+  private static final void x_to_y2(Nxt.Curve25519.long10 t, Nxt.Curve25519.long10 y2, Nxt.Curve25519.long10 x)
   {
-    sqr(paramlong101, paramlong103);
-    mul_small(paramlong102, paramlong103, 486662L);
-    add(paramlong101, paramlong101, paramlong102);
-    paramlong101._0 += 1L;
-    mul(paramlong102, paramlong101, paramlong103);
+    sqr(t, x);
+    mul_small(y2, x, 486662L);
+    add(t, t, y2);
+    t._0 += 1L;
+    mul(y2, t, x);
   }
   
-  private static final void core(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3, byte[] paramArrayOfByte4)
+  private static final void core(byte[] Px, byte[] s, byte[] k, byte[] Gx)
   {
-    Nxt.Curve25519.long10 locallong101 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong102 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong103 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong104 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10 locallong105 = new Nxt.Curve25519.long10();
-    Nxt.Curve25519.long10[] arrayOflong101 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    Nxt.Curve25519.long10[] arrayOflong102 = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
-    if (paramArrayOfByte4 != null) {
-      unpack(locallong101, paramArrayOfByte4);
+    Nxt.Curve25519.long10 dx = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t1 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t2 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t3 = new Nxt.Curve25519.long10();
+    Nxt.Curve25519.long10 t4 = new Nxt.Curve25519.long10();
+    
+    Nxt.Curve25519.long10[] x = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    Nxt.Curve25519.long10[] z = { new Nxt.Curve25519.long10(), new Nxt.Curve25519.long10() };
+    if (Gx != null) {
+      unpack(dx, Gx);
     } else {
-      set(locallong101, 9);
+      set(dx, 9);
     }
-    set(arrayOflong101[0], 1);
-    set(arrayOflong102[0], 0);
-    cpy(arrayOflong101[1], locallong101);
-    set(arrayOflong102[1], 1);
-    int i = 32;
-    Object localObject;
-    while (i-- != 0)
+    set(x[0], 1);
+    set(z[0], 0);
+    
+
+    cpy(x[1], dx);
+    set(z[1], 1);
+    for (int i = 32; i-- != 0;)
     {
       if (i == 0) {
         i = 0;
       }
-      int j = 8;
-      while (j-- != 0)
+      for (j = 8; j-- != 0;)
       {
-        int k = (paramArrayOfByte3[i] & 0xFF) >> j & 0x1;
-        int m = (paramArrayOfByte3[i] & 0xFF ^ 0xFFFFFFFF) >> j & 0x1;
-        localObject = arrayOflong101[m];
-        Nxt.Curve25519.long10 locallong106 = arrayOflong102[m];
-        Nxt.Curve25519.long10 locallong107 = arrayOflong101[k];
-        Nxt.Curve25519.long10 locallong108 = arrayOflong102[k];
-        mont_prep(locallong102, locallong103, (Nxt.Curve25519.long10)localObject, locallong106);
-        mont_prep(locallong104, locallong105, locallong107, locallong108);
-        mont_add(locallong102, locallong103, locallong104, locallong105, (Nxt.Curve25519.long10)localObject, locallong106, locallong101);
-        mont_dbl(locallong102, locallong103, locallong104, locallong105, locallong107, locallong108);
+        int bit1 = (k[i] & 0xFF) >> j & 0x1;
+        int bit0 = (k[i] & 0xFF ^ 0xFFFFFFFF) >> j & 0x1;
+        Nxt.Curve25519.long10 ax = x[bit0];
+        Nxt.Curve25519.long10 az = z[bit0];
+        Nxt.Curve25519.long10 bx = x[bit1];
+        Nxt.Curve25519.long10 bz = z[bit1];
+        
+
+
+        mont_prep(t1, t2, ax, az);
+        mont_prep(t3, t4, bx, bz);
+        mont_add(t1, t2, t3, t4, ax, az, dx);
+        mont_dbl(t1, t2, t3, t4, bx, bz);
       }
     }
-    recip(locallong102, arrayOflong102[0], 0);
-    mul(locallong101, arrayOflong101[0], locallong102);
-    pack(locallong101, paramArrayOfByte1);
-    if (paramArrayOfByte2 != null)
+    int j;
+    recip(t1, z[0], 0);
+    mul(dx, x[0], t1);
+    pack(dx, Px);
+    if (s != null)
     {
-      x_to_y2(locallong103, locallong102, locallong101);
-      recip(locallong104, arrayOflong102[1], 0);
-      mul(locallong103, arrayOflong101[1], locallong104);
-      add(locallong103, locallong103, locallong101);
-      locallong103._0 += 486671L;
-      locallong101._0 -= 9L;
-      sqr(locallong104, locallong101);
-      mul(locallong101, locallong103, locallong104);
-      sub(locallong101, locallong101, locallong102);
-      locallong101._0 -= 39420360L;
-      mul(locallong102, locallong101, BASE_R2Y);
-      if (is_negative(locallong102) != 0) {
-        cpy32(paramArrayOfByte2, paramArrayOfByte3);
+      x_to_y2(t2, t1, dx);
+      recip(t3, z[1], 0);
+      mul(t2, x[1], t3);
+      add(t2, t2, dx);
+      t2._0 += 486671L;
+      dx._0 -= 9L;
+      sqr(t3, dx);
+      mul(dx, t2, t3);
+      sub(dx, dx, t1);
+      dx._0 -= 39420360L;
+      mul(t1, dx, BASE_R2Y);
+      if (is_negative(t1) != 0) {
+        cpy32(s, k);
       } else {
-        mula_small(paramArrayOfByte2, ORDER_TIMES_8, 0, paramArrayOfByte3, 32, -1);
+        mula_small(s, ORDER_TIMES_8, 0, k, 32, -1);
       }
-      byte[] arrayOfByte1 = new byte[32];
-      byte[] arrayOfByte2 = new byte[64];
-      localObject = new byte[64];
-      cpy32(arrayOfByte1, ORDER);
-      cpy32(paramArrayOfByte2, egcd32(arrayOfByte2, (byte[])localObject, paramArrayOfByte2, arrayOfByte1));
-      if ((paramArrayOfByte2[31] & 0x80) != 0) {
-        mula_small(paramArrayOfByte2, paramArrayOfByte2, 0, ORDER, 32, 1);
+      byte[] temp1 = new byte[32];
+      byte[] temp2 = new byte[64];
+      byte[] temp3 = new byte[64];
+      cpy32(temp1, ORDER);
+      cpy32(s, egcd32(temp2, temp3, s, temp1));
+      if ((s[31] & 0x80) != 0) {
+        mula_small(s, s, 0, ORDER, 32, 1);
       }
-    }
-  }

@@ -11,11 +11,11 @@ class Nxt$Transaction$ColoredCoinsBidOrderPlacementAttachment
   int quantity;
   long price;
   
-  Nxt$Transaction$ColoredCoinsBidOrderPlacementAttachment(long paramLong1, int paramInt, long paramLong2)
+  Nxt$Transaction$ColoredCoinsBidOrderPlacementAttachment(long asset, int quantity, long price)
   {
-    this.asset = paramLong1;
-    this.quantity = paramInt;
-    this.price = paramLong2;
+    this.asset = asset;
+    this.quantity = quantity;
+    this.price = price;
   }
   
   public int getSize()
@@ -25,29 +25,25 @@ class Nxt$Transaction$ColoredCoinsBidOrderPlacementAttachment
   
   public byte[] getBytes()
   {
-    ByteBuffer localByteBuffer = ByteBuffer.allocate(getSize());
-    localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-    localByteBuffer.putLong(this.asset);
-    localByteBuffer.putInt(this.quantity);
-    localByteBuffer.putLong(this.price);
-    return localByteBuffer.array();
+    ByteBuffer buffer = ByteBuffer.allocate(getSize());
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.putLong(this.asset);
+    buffer.putInt(this.quantity);
+    buffer.putLong(this.price);
+    
+    return buffer.array();
   }
   
   public JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("asset", Nxt.convert(this.asset));
-    localJSONObject.put("quantity", Integer.valueOf(this.quantity));
-    localJSONObject.put("price", Long.valueOf(this.price));
-    return localJSONObject;
+    JSONObject attachment = new JSONObject();
+    attachment.put("asset", Nxt.convert(this.asset));
+    attachment.put("quantity", Integer.valueOf(this.quantity));
+    attachment.put("price", Long.valueOf(this.price));
+    
+    return attachment;
   }
   
   public long getRecipientDeltaBalance()
   {
     return 0L;
-  }
-  
-  public long getSenderDeltaBalance()
-  {
-    return -this.quantity * this.price;
-  }

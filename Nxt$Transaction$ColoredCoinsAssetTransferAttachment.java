@@ -10,10 +10,10 @@ class Nxt$Transaction$ColoredCoinsAssetTransferAttachment
   long asset;
   int quantity;
   
-  Nxt$Transaction$ColoredCoinsAssetTransferAttachment(long paramLong, int paramInt)
+  Nxt$Transaction$ColoredCoinsAssetTransferAttachment(long asset, int quantity)
   {
-    this.asset = paramLong;
-    this.quantity = paramInt;
+    this.asset = asset;
+    this.quantity = quantity;
   }
   
   public int getSize()
@@ -23,27 +23,23 @@ class Nxt$Transaction$ColoredCoinsAssetTransferAttachment
   
   public byte[] getBytes()
   {
-    ByteBuffer localByteBuffer = ByteBuffer.allocate(getSize());
-    localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-    localByteBuffer.putLong(this.asset);
-    localByteBuffer.putInt(this.quantity);
-    return localByteBuffer.array();
+    ByteBuffer buffer = ByteBuffer.allocate(getSize());
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.putLong(this.asset);
+    buffer.putInt(this.quantity);
+    
+    return buffer.array();
   }
   
   public JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("asset", Nxt.convert(this.asset));
-    localJSONObject.put("quantity", Integer.valueOf(this.quantity));
-    return localJSONObject;
+    JSONObject attachment = new JSONObject();
+    attachment.put("asset", Nxt.convert(this.asset));
+    attachment.put("quantity", Integer.valueOf(this.quantity));
+    
+    return attachment;
   }
   
   public long getRecipientDeltaBalance()
   {
     return 0L;
-  }
-  
-  public long getSenderDeltaBalance()
-  {
-    return 0L;
-  }

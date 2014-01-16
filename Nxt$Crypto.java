@@ -1,62 +1,76 @@
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.util.Arrays;
 
 class Nxt$Crypto
 {
-  static byte[] getPublicKey(String paramString)
+  static byte[] getPublicKey(String secretPhrase)
   {
     try
     {
-      byte[] arrayOfByte = new byte[32];
-      Nxt.Curve25519.keygen(arrayOfByte, null, MessageDigest.getInstance("SHA-256").digest(paramString.getBytes("UTF-8")));
-      return arrayOfByte;
+      byte[] publicKey = new byte[32];
+      Nxt.Curve25519.keygen(publicKey, null, Nxt.getMessageDigest("SHA-256").digest(secretPhrase.getBytes("UTF-8")));
+      
+      return publicKey;
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logMessage("Error getting public key", e);
+    }
     return null;
   }
   
-  static byte[] sign(byte[] paramArrayOfByte, String paramString)
+  static byte[] sign(byte[] message, String secretPhrase)
   {
     try
     {
-      byte[] arrayOfByte1 = new byte[32];
-      byte[] arrayOfByte2 = new byte[32];
-      MessageDigest localMessageDigest = MessageDigest.getInstance("SHA-256");
-      Nxt.Curve25519.keygen(arrayOfByte1, arrayOfByte2, localMessageDigest.digest(paramString.getBytes("UTF-8")));
-      byte[] arrayOfByte3 = localMessageDigest.digest(paramArrayOfByte);
-      localMessageDigest.update(arrayOfByte3);
-      byte[] arrayOfByte4 = localMessageDigest.digest(arrayOfByte2);
-      byte[] arrayOfByte5 = new byte[32];
-      Nxt.Curve25519.keygen(arrayOfByte5, null, arrayOfByte4);
-      localMessageDigest.update(arrayOfByte3);
-      byte[] arrayOfByte6 = localMessageDigest.digest(arrayOfByte5);
-      byte[] arrayOfByte7 = new byte[32];
-      Nxt.Curve25519.sign(arrayOfByte7, arrayOfByte6, arrayOfByte4, arrayOfByte2);
-      byte[] arrayOfByte8 = new byte[64];
-      System.arraycopy(arrayOfByte7, 0, arrayOfByte8, 0, 32);
-      System.arraycopy(arrayOfByte6, 0, arrayOfByte8, 32, 32);
-      return arrayOfByte8;
+      byte[] P = new byte[32];
+      byte[] s = new byte[32];
+      MessageDigest digest = Nxt.getMessageDigest("SHA-256");
+      Nxt.Curve25519.keygen(P, s, digest.digest(secretPhrase.getBytes("UTF-8")));
+      
+      byte[] m = digest.digest(message);
+      
+      digest.update(m);
+      byte[] x = digest.digest(s);
+      
+      byte[] Y = new byte[32];
+      Nxt.Curve25519.keygen(Y, null, x);
+      
+      digest.update(m);
+      byte[] h = digest.digest(Y);
+      
+      byte[] v = new byte[32];
+      Nxt.Curve25519.sign(v, h, x, s);
+      
+      byte[] signature = new byte[64];
+      System.arraycopy(v, 0, signature, 0, 32);
+      System.arraycopy(h, 0, signature, 32, 32);
+      
+      return signature;
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logMessage("Error in signing message", e);
+    }
     return null;
   }
   
-  static boolean verify(byte[] paramArrayOfByte1, byte[] paramArrayOfByte2, byte[] paramArrayOfByte3)
+  static boolean verify(byte[] signature, byte[] message, byte[] publicKey)
   {
     try
     {
-      byte[] arrayOfByte1 = new byte[32];
-      byte[] arrayOfByte2 = new byte[32];
-      System.arraycopy(paramArrayOfByte1, 0, arrayOfByte2, 0, 32);
-      byte[] arrayOfByte3 = new byte[32];
-      System.arraycopy(paramArrayOfByte1, 32, arrayOfByte3, 0, 32);
-      Nxt.Curve25519.verify(arrayOfByte1, arrayOfByte2, arrayOfByte3, paramArrayOfByte3);
-      MessageDigest localMessageDigest = MessageDigest.getInstance("SHA-256");
-      byte[] arrayOfByte4 = localMessageDigest.digest(paramArrayOfByte2);
-      localMessageDigest.update(arrayOfByte4);
-      byte[] arrayOfByte5 = localMessageDigest.digest(arrayOfByte1);
-      return Arrays.equals(arrayOfByte3, arrayOfByte5);
+      byte[] Y = new byte[32];
+      byte[] v = new byte[32];
+      System.arraycopy(signature, 0, v, 0, 32);
+      byte[] h = new byte[32];
+      System.arraycopy(signature, 32, h, 0, 32);
+      Nxt.Curve25519.verify(Y, v, h, publicKey);
+      
+      MessageDigest digest = Nxt.getMessageDigest("SHA-256");
+      byte[] m = digest.digest(message);
+      digest.update(m);
+      byte[] h2 = digest.digest(Y);
+      
+      return Arrays.equals(h, h2);
     }
-    catch (Exception localException) {}
-    return false;
-  }

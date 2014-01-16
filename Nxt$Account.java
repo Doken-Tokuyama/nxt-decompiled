@@ -2,7 +2,6 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -24,124 +23,118 @@ class Nxt$Account
   private long unconfirmedBalance;
   private final Map<Long, Integer> unconfirmedAssetBalances = new HashMap();
   
-  private Nxt$Account(long paramLong)
+  private Nxt$Account(long id)
   {
-    this.id = paramLong;
+    this.id = id;
     this.height = Nxt.Block.getLastBlock().height;
   }
   
-  static Account addAccount(long paramLong)
+  static Account addAccount(long id)
   {
-    Account localAccount = new Account(paramLong);
-    Nxt.accounts.put(Long.valueOf(paramLong), localAccount);
-    return localAccount;
+    Account account = new Account(id);
+    Nxt.accounts.put(Long.valueOf(id), account);
+    
+    return account;
   }
   
-  boolean setOrVerify(byte[] paramArrayOfByte)
+  boolean setOrVerify(byte[] key)
   {
-    return (this.publicKey.compareAndSet(null, paramArrayOfByte)) || (Arrays.equals(paramArrayOfByte, (byte[])this.publicKey.get()));
+    return (this.publicKey.compareAndSet(null, key)) || (Arrays.equals(key, (byte[])this.publicKey.get()));
   }
   
-  void generateBlock(String paramString)
-    throws Exception
+  void generateBlock(String secretPhrase)
   {
-    TreeSet localTreeSet = new TreeSet();
-    Object localObject1 = Nxt.unconfirmedTransactions.values().iterator();
-    while (((Iterator)localObject1).hasNext())
-    {
-      localObject2 = (Nxt.Transaction)((Iterator)localObject1).next();
-      if ((((Nxt.Transaction)localObject2).referencedTransaction == 0L) || (Nxt.transactions.get(Long.valueOf(((Nxt.Transaction)localObject2).referencedTransaction)) != null)) {
-        localTreeSet.add(localObject2);
+    Set<Nxt.Transaction> sortedTransactions = new TreeSet();
+    for (Nxt.Transaction transaction : Nxt.unconfirmedTransactions.values()) {
+      if ((transaction.referencedTransaction == 0L) || (Nxt.transactions.get(Long.valueOf(transaction.referencedTransaction)) != null)) {
+        sortedTransactions.add(transaction);
       }
     }
-    localObject1 = new HashMap();
-    Object localObject2 = new HashSet();
-    HashMap localHashMap = new HashMap();
-    int i = 0;
-    Object localObject3;
-    while (i <= 32640)
+    Map<Long, Nxt.Transaction> newTransactions = new HashMap();
+    Set<String> newAliases = new HashSet();
+    Map<Long, Long> accumulatedAmounts = new HashMap();
+    int payloadLength = 0;
+    while (payloadLength <= 32640)
     {
-      int j = ((Map)localObject1).size();
-      localObject3 = localTreeSet.iterator();
-      while (((Iterator)localObject3).hasNext())
+      int prevNumberOfNewTransactions = newTransactions.size();
+      for (Nxt.Transaction transaction : sortedTransactions)
       {
-        localObject4 = (Nxt.Transaction)((Iterator)localObject3).next();
-        int m = ((Nxt.Transaction)localObject4).getSize();
-        if ((((Map)localObject1).get(Long.valueOf(((Nxt.Transaction)localObject4).getId())) == null) && (i + m <= 32640))
+        int transactionLength = transaction.getSize();
+        if ((newTransactions.get(Long.valueOf(transaction.getId())) == null) && (payloadLength + transactionLength <= 32640))
         {
-          long l1 = ((Nxt.Transaction)localObject4).getSenderAccountId();
-          Long localLong = (Long)localHashMap.get(Long.valueOf(l1));
-          if (localLong == null) {
-            localLong = Long.valueOf(0L);
+          long sender = transaction.getSenderAccountId();
+          Long accumulatedAmount = (Long)accumulatedAmounts.get(Long.valueOf(sender));
+          if (accumulatedAmount == null) {
+            accumulatedAmount = Long.valueOf(0L);
           }
-          long l2 = (((Nxt.Transaction)localObject4).amount + ((Nxt.Transaction)localObject4).fee) * 100L;
-          if ((localLong.longValue() + l2 <= ((Account)Nxt.accounts.get(Long.valueOf(l1))).getBalance()) && (((Nxt.Transaction)localObject4).validateAttachment())) {
-            switch (((Nxt.Transaction)localObject4).type)
+          long amount = (transaction.amount + transaction.fee) * 100L;
+          if ((accumulatedAmount.longValue() + amount <= ((Account)Nxt.accounts.get(Long.valueOf(sender))).getBalance()) && (transaction.validateAttachment())) {
+            switch (transaction.type)
             {
             case 1: 
-              switch (((Nxt.Transaction)localObject4).subtype)
+              switch (transaction.subtype)
               {
               case 1: 
-                if (!((Set)localObject2).add(((Nxt.Transaction.MessagingAliasAssignmentAttachment)((Nxt.Transaction)localObject4).attachment).alias.toLowerCase())) {}
+                if (!newAliases.add(((Nxt.Transaction.MessagingAliasAssignmentAttachment)transaction.attachment).alias.toLowerCase())) {}
                 break;
               }
             default: 
-              localHashMap.put(Long.valueOf(l1), Long.valueOf(localLong.longValue() + l2));
-              ((Map)localObject1).put(Long.valueOf(((Nxt.Transaction)localObject4).getId()), localObject4);
-              i += m;
+              accumulatedAmounts.put(Long.valueOf(sender), Long.valueOf(accumulatedAmount.longValue() + amount));
+              
+              newTransactions.put(Long.valueOf(transaction.getId()), transaction);
+              payloadLength += transactionLength;
             }
           }
         }
       }
-      if (((Map)localObject1).size() == j) {
+      if (newTransactions.size() == prevNumberOfNewTransactions) {
         break;
       }
     }
-    Nxt.Block localBlock;
+    Nxt.Block block;
+    Nxt.Block block;
     if (Nxt.Block.getLastBlock().height < 30000)
     {
-      localBlock = new Nxt.Block(1, Nxt.getEpochTime(System.currentTimeMillis()), Nxt.lastBlock, ((Map)localObject1).size(), 0, 0, 0, null, Nxt.Crypto.getPublicKey(paramString), null, new byte[64]);
+      block = new Nxt.Block(1, Nxt.getEpochTime(System.currentTimeMillis()), Nxt.lastBlock, newTransactions.size(), 0, 0, 0, null, Nxt.Crypto.getPublicKey(secretPhrase), null, new byte[64]);
     }
     else
     {
-      localObject3 = MessageDigest.getInstance("SHA-256").digest(Nxt.Block.getLastBlock().getBytes());
-      localBlock = new Nxt.Block(2, Nxt.getEpochTime(System.currentTimeMillis()), Nxt.lastBlock, ((Map)localObject1).size(), 0, 0, 0, null, Nxt.Crypto.getPublicKey(paramString), null, new byte[64], (byte[])localObject3);
+      byte[] previousBlockHash = Nxt.getMessageDigest("SHA-256").digest(Nxt.Block.getLastBlock().getBytes());
+      block = new Nxt.Block(2, Nxt.getEpochTime(System.currentTimeMillis()), Nxt.lastBlock, newTransactions.size(), 0, 0, 0, null, Nxt.Crypto.getPublicKey(secretPhrase), null, new byte[64], previousBlockHash);
     }
-    int k = 0;
-    Object localObject4 = ((Map)localObject1).entrySet().iterator();
-    while (((Iterator)localObject4).hasNext())
+    int i = 0;
+    for (Map.Entry<Long, Nxt.Transaction> transactionEntry : newTransactions.entrySet())
     {
-      localObject5 = (Map.Entry)((Iterator)localObject4).next();
-      localObject6 = (Nxt.Transaction)((Map.Entry)localObject5).getValue();
-      localBlock.totalAmount += ((Nxt.Transaction)localObject6).amount;
-      localBlock.totalFee += ((Nxt.Transaction)localObject6).fee;
-      localBlock.payloadLength += ((Nxt.Transaction)localObject6).getSize();
-      localBlock.transactions[(k++)] = ((Long)((Map.Entry)localObject5).getKey()).longValue();
+      Nxt.Transaction transaction = (Nxt.Transaction)transactionEntry.getValue();
+      block.totalAmount += transaction.amount;
+      block.totalFee += transaction.fee;
+      block.payloadLength += transaction.getSize();
+      block.transactions[(i++)] = ((Long)transactionEntry.getKey()).longValue();
     }
-    Arrays.sort(localBlock.transactions);
-    localObject4 = MessageDigest.getInstance("SHA-256");
-    for (k = 0; k < localBlock.numberOfTransactions; k++) {
-      ((MessageDigest)localObject4).update(((Nxt.Transaction)((Map)localObject1).get(Long.valueOf(localBlock.transactions[k]))).getBytes());
+    Arrays.sort(block.transactions);
+    MessageDigest digest = Nxt.getMessageDigest("SHA-256");
+    for (long transactionId : block.transactions) {
+      digest.update(((Nxt.Transaction)newTransactions.get(Long.valueOf(transactionId))).getBytes());
     }
-    localBlock.payloadHash = ((MessageDigest)localObject4).digest();
+    block.payloadHash = digest.digest();
     if (Nxt.Block.getLastBlock().height < 30000)
     {
-      localBlock.generationSignature = Nxt.Crypto.sign(Nxt.Block.getLastBlock().generationSignature, paramString);
+      block.generationSignature = Nxt.Crypto.sign(Nxt.Block.getLastBlock().generationSignature, secretPhrase);
     }
     else
     {
-      ((MessageDigest)localObject4).update(Nxt.Block.getLastBlock().generationSignature);
-      localBlock.generationSignature = ((MessageDigest)localObject4).digest(Nxt.Crypto.getPublicKey(paramString));
+      digest.update(Nxt.Block.getLastBlock().generationSignature);
+      block.generationSignature = digest.digest(Nxt.Crypto.getPublicKey(secretPhrase));
     }
-    Object localObject5 = localBlock.getBytes();
-    Object localObject6 = new byte[localObject5.length - 64];
-    System.arraycopy(localObject5, 0, localObject6, 0, localObject6.length);
-    localBlock.blockSignature = Nxt.Crypto.sign((byte[])localObject6, paramString);
-    if ((localBlock.verifyBlockSignature()) && (localBlock.verifyGenerationSignature()))
+    byte[] data = block.getBytes();
+    byte[] data2 = new byte[data.length - 64];
+    System.arraycopy(data, 0, data2, 0, data2.length);
+    block.blockSignature = Nxt.Crypto.sign(data2, secretPhrase);
+    if ((block.verifyBlockSignature()) && (block.verifyGenerationSignature()))
     {
-      JSONObject localJSONObject = localBlock.getJSONObject((Map)localObject1);
-      localJSONObject.put("requestType", "processBlock");
-      Nxt.Peer.sendToAllPeers(localJSONObject);
+      JSONObject request = block.getJSONObject(newTransactions);
+      request.put("requestType", "processBlock");
+      Nxt.Peer.sendToSomePeers(request);
     }
     else
     {
@@ -151,73 +144,76 @@ class Nxt$Account
   
   int getEffectiveBalance()
   {
-    if (this.height == 0) {
-      return (int)(getBalance() / 100L);
-    }
-    if (Nxt.Block.getLastBlock().height - this.height < 1440) {
-      return 0;
-    }
-    int i = 0;
-    for (long l : Nxt.Block.getLastBlock().transactions)
+    if (this.height < 47000)
     {
-      Nxt.Transaction localTransaction = (Nxt.Transaction)Nxt.transactions.get(Long.valueOf(l));
-      if (localTransaction.recipient == this.id) {
-        i += localTransaction.amount;
+      if (this.height == 0) {
+        return (int)(getBalance() / 100L);
       }
+      if (Nxt.Block.getLastBlock().height - this.height < 1440) {
+        return 0;
+      }
+      int amount = 0;
+      for (long transactionId : Nxt.Block.getLastBlock().transactions)
+      {
+        Nxt.Transaction transaction = (Nxt.Transaction)Nxt.transactions.get(Long.valueOf(transactionId));
+        if (transaction.recipient == this.id) {
+          amount += transaction.amount;
+        }
+      }
+      return (int)(getBalance() / 100L) - amount;
     }
-    return (int)(getBalance() / 100L) - i;
+    return (int)(getGuaranteedBalance(1440) / 100L);
   }
   
-  static long getId(byte[] paramArrayOfByte)
-    throws Exception
+  static long getId(byte[] publicKey)
   {
-    byte[] arrayOfByte = MessageDigest.getInstance("SHA-256").digest(paramArrayOfByte);
-    BigInteger localBigInteger = new BigInteger(1, new byte[] { arrayOfByte[7], arrayOfByte[6], arrayOfByte[5], arrayOfByte[4], arrayOfByte[3], arrayOfByte[2], arrayOfByte[1], arrayOfByte[0] });
-    return localBigInteger.longValue();
+    byte[] publicKeyHash = Nxt.getMessageDigest("SHA-256").digest(publicKey);
+    BigInteger bigInteger = new BigInteger(1, new byte[] { publicKeyHash[7], publicKeyHash[6], publicKeyHash[5], publicKeyHash[4], publicKeyHash[3], publicKeyHash[2], publicKeyHash[1], publicKeyHash[0] });
+    return bigInteger.longValue();
   }
   
-  synchronized Integer getAssetBalance(Long paramLong)
+  synchronized Integer getAssetBalance(Long assetId)
   {
-    return (Integer)this.assetBalances.get(paramLong);
+    return (Integer)this.assetBalances.get(assetId);
   }
   
-  synchronized Integer getUnconfirmedAssetBalance(Long paramLong)
+  synchronized Integer getUnconfirmedAssetBalance(Long assetId)
   {
-    return (Integer)this.unconfirmedAssetBalances.get(paramLong);
+    return (Integer)this.unconfirmedAssetBalances.get(assetId);
   }
   
-  synchronized void addToAssetBalance(Long paramLong, int paramInt)
+  synchronized void addToAssetBalance(Long assetId, int quantity)
   {
-    Integer localInteger = (Integer)this.assetBalances.get(paramLong);
-    if (localInteger == null) {
-      this.assetBalances.put(paramLong, Integer.valueOf(paramInt));
+    Integer assetBalance = (Integer)this.assetBalances.get(assetId);
+    if (assetBalance == null) {
+      this.assetBalances.put(assetId, Integer.valueOf(quantity));
     } else {
-      this.assetBalances.put(paramLong, Integer.valueOf(localInteger.intValue() + paramInt));
+      this.assetBalances.put(assetId, Integer.valueOf(assetBalance.intValue() + quantity));
     }
   }
   
-  synchronized void addToUnconfirmedAssetBalance(Long paramLong, int paramInt)
+  synchronized void addToUnconfirmedAssetBalance(Long assetId, int quantity)
   {
-    Integer localInteger = (Integer)this.unconfirmedAssetBalances.get(paramLong);
-    if (localInteger == null) {
-      this.unconfirmedAssetBalances.put(paramLong, Integer.valueOf(paramInt));
+    Integer unconfirmedAssetBalance = (Integer)this.unconfirmedAssetBalances.get(assetId);
+    if (unconfirmedAssetBalance == null) {
+      this.unconfirmedAssetBalances.put(assetId, Integer.valueOf(quantity));
     } else {
-      this.unconfirmedAssetBalances.put(paramLong, Integer.valueOf(localInteger.intValue() + paramInt));
+      this.unconfirmedAssetBalances.put(assetId, Integer.valueOf(unconfirmedAssetBalance.intValue() + quantity));
     }
   }
   
-  synchronized void addToAssetAndUnconfirmedAssetBalance(Long paramLong, int paramInt)
+  synchronized void addToAssetAndUnconfirmedAssetBalance(Long assetId, int quantity)
   {
-    Integer localInteger = (Integer)this.assetBalances.get(paramLong);
-    if (localInteger == null)
+    Integer assetBalance = (Integer)this.assetBalances.get(assetId);
+    if (assetBalance == null)
     {
-      this.assetBalances.put(paramLong, Integer.valueOf(paramInt));
-      this.unconfirmedAssetBalances.put(paramLong, Integer.valueOf(paramInt));
+      this.assetBalances.put(assetId, Integer.valueOf(quantity));
+      this.unconfirmedAssetBalances.put(assetId, Integer.valueOf(quantity));
     }
     else
     {
-      this.assetBalances.put(paramLong, Integer.valueOf(localInteger.intValue() + paramInt));
-      this.unconfirmedAssetBalances.put(paramLong, Integer.valueOf(((Integer)this.unconfirmedAssetBalances.get(paramLong)).intValue() + paramInt));
+      this.assetBalances.put(assetId, Integer.valueOf(assetBalance.intValue() + quantity));
+      this.unconfirmedAssetBalances.put(assetId, Integer.valueOf(((Integer)this.unconfirmedAssetBalances.get(assetId)).intValue() + quantity));
     }
   }
   
@@ -226,47 +222,47 @@ class Nxt$Account
     return this.balance;
   }
   
-  long getGuaranteedBalance(int paramInt)
-    throws Exception
+  long getGuaranteedBalance(int numberOfConfirmations)
   {
-    long l1 = getBalance();
-    ArrayList localArrayList = Nxt.Block.getLastBlocks(paramInt - 1);
-    byte[] arrayOfByte = (byte[])this.publicKey.get();
-    Iterator localIterator = localArrayList.iterator();
-    while (localIterator.hasNext())
+    long guaranteedBalance = getBalance();
+    ArrayList<Nxt.Block> lastBlocks = Nxt.Block.getLastBlocks(numberOfConfirmations - 1);
+    byte[] accountPublicKey = (byte[])this.publicKey.get();
+    for (Iterator i$ = lastBlocks.iterator(); i$.hasNext();)
     {
-      Nxt.Block localBlock = (Nxt.Block)localIterator.next();
-      if ((Arrays.equals(localBlock.generatorPublicKey, arrayOfByte)) && (l1 -= localBlock.totalFee * 100L <= 0L)) {
-        return 0L;
+      block = (Nxt.Block)i$.next();
+      if (Arrays.equals(block.generatorPublicKey, accountPublicKey)) {
+        if (guaranteedBalance -= block.totalFee * 100L <= 0L) {
+          return 0L;
+        }
       }
-      int i = localBlock.numberOfTransactions;
-      while (i-- > 0)
+      for (i = block.transactions.length; i-- > 0;)
       {
-        Nxt.Transaction localTransaction = (Nxt.Transaction)Nxt.transactions.get(Long.valueOf(localBlock.transactions[i]));
-        long l2;
-        if (Arrays.equals(localTransaction.senderPublicKey, arrayOfByte))
+        Nxt.Transaction transaction = (Nxt.Transaction)Nxt.transactions.get(Long.valueOf(block.transactions[i]));
+        if (Arrays.equals(transaction.senderPublicKey, accountPublicKey))
         {
-          l2 = localTransaction.getSenderDeltaBalance();
-          if ((l2 > 0L) && (l1 -= l2 <= 0L)) {
+          long deltaBalance = transaction.getSenderDeltaBalance();
+          if ((deltaBalance > 0L) && (guaranteedBalance -= deltaBalance <= 0L)) {
             return 0L;
           }
-          if ((l2 < 0L) && (l1 += l2 <= 0L)) {
+          if ((deltaBalance < 0L) && (guaranteedBalance += deltaBalance <= 0L)) {
             return 0L;
           }
         }
-        if (localTransaction.recipient == this.id)
+        if (transaction.recipient == this.id)
         {
-          l2 = localTransaction.getRecipientDeltaBalance();
-          if ((l2 > 0L) && (l1 -= l2 <= 0L)) {
+          long deltaBalance = transaction.getRecipientDeltaBalance();
+          if ((deltaBalance > 0L) && (guaranteedBalance -= deltaBalance <= 0L)) {
             return 0L;
           }
-          if ((l2 < 0L) && (l1 += l2 <= 0L)) {
+          if ((deltaBalance < 0L) && (guaranteedBalance += deltaBalance <= 0L)) {
             return 0L;
           }
         }
       }
     }
-    return l1;
+    Nxt.Block block;
+    int i;
+    return guaranteedBalance;
   }
   
   synchronized long getUnconfirmedBalance()
@@ -274,33 +270,30 @@ class Nxt$Account
     return this.unconfirmedBalance;
   }
   
-  void addToBalance(long paramLong)
-    throws Exception
+  void addToBalance(long amount)
   {
     synchronized (this)
     {
-      this.balance += paramLong;
+      this.balance += amount;
     }
     updatePeerWeights();
   }
   
-  void addToUnconfirmedBalance(long paramLong)
-    throws Exception
+  void addToUnconfirmedBalance(long amount)
   {
     synchronized (this)
     {
-      this.unconfirmedBalance += paramLong;
+      this.unconfirmedBalance += amount;
     }
     updateUserUnconfirmedBalance();
   }
   
-  void addToBalanceAndUnconfirmedBalance(long paramLong)
-    throws Exception
+  void addToBalanceAndUnconfirmedBalance(long amount)
   {
     synchronized (this)
     {
-      this.balance += paramLong;
-      this.unconfirmedBalance += paramLong;
+      this.balance += amount;
+      this.unconfirmedBalance += amount;
     }
     updatePeerWeights();
     updateUserUnconfirmedBalance();
@@ -308,29 +301,16 @@ class Nxt$Account
   
   private void updatePeerWeights()
   {
-    Iterator localIterator = Nxt.peers.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Nxt.Peer localPeer = (Nxt.Peer)localIterator.next();
-      if ((localPeer.accountId == this.id) && (localPeer.adjustedWeight > 0L)) {
-        localPeer.updateWeight();
+    for (Nxt.Peer peer : Nxt.peers.values()) {
+      if ((peer.accountId == this.id) && (peer.adjustedWeight > 0L)) {
+        peer.updateWeight();
       }
     }
   }
   
   private void updateUserUnconfirmedBalance()
-    throws Exception
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("response", "setBalance");
-    localJSONObject.put("balance", Long.valueOf(getUnconfirmedBalance()));
-    byte[] arrayOfByte = (byte[])this.publicKey.get();
-    Iterator localIterator = Nxt.users.values().iterator();
-    while (localIterator.hasNext())
-    {
-      Nxt.User localUser = (Nxt.User)localIterator.next();
-      if ((localUser.secretPhrase != null) && (Arrays.equals(Nxt.Crypto.getPublicKey(localUser.secretPhrase), arrayOfByte))) {
-        localUser.send(localJSONObject);
-      }
-    }
-  }
+    JSONObject response = new JSONObject();
+    response.put("response", "setBalance");
+    response.put("balance", Long.valueOf(getUnconfirmedBalance()));
+    byte[] accountPublicKey = (byte[])this.publicKey.get();

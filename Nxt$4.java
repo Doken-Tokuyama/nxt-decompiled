@@ -1,14 +1,15 @@
-import java.util.Iterator;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 class Nxt$4
   implements Runnable
 {
-  private final JSONObject getPeersRequest = new JSONObject();
+  private final JSONObject getPeersRequest;
   
   Nxt$4(Nxt paramNxt)
   {
+    this.getPeersRequest = new JSONObject();
+    
     this.getPeersRequest.put("requestType", "getPeers");
   }
   
@@ -16,24 +17,25 @@ class Nxt$4
   {
     try
     {
-      Nxt.Peer localPeer = Nxt.Peer.getAnyPeer(1, true);
-      if (localPeer != null)
+      Nxt.Peer peer = Nxt.Peer.getAnyPeer(1, true);
+      if (peer != null)
       {
-        JSONObject localJSONObject = localPeer.send(this.getPeersRequest);
-        if (localJSONObject != null)
+        JSONObject response = peer.send(this.getPeersRequest);
+        if (response != null)
         {
-          JSONArray localJSONArray = (JSONArray)localJSONObject.get("peers");
-          Iterator localIterator = localJSONArray.iterator();
-          while (localIterator.hasNext())
+          JSONArray peers = (JSONArray)response.get("peers");
+          for (Object peerAddress : peers)
           {
-            Object localObject = localIterator.next();
-            String str = ((String)localObject).trim();
-            if (str.length() > 0) {
-              Nxt.Peer.addPeer(str, str);
+            String address = ((String)peerAddress).trim();
+            if (address.length() > 0) {
+              Nxt.Peer.addPeer(address, address);
             }
           }
         }
       }
     }
-    catch (Exception localException) {}
-  }
+    catch (Exception e)
+    {
+      Nxt.logDebugMessage("Error requesting peers from a peer", e);
+    }
+    catch (Throwable t)

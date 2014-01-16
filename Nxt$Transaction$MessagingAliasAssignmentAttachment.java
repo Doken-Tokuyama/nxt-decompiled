@@ -1,4 +1,5 @@
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.json.simple.JSONObject;
@@ -10,10 +11,10 @@ class Nxt$Transaction$MessagingAliasAssignmentAttachment
   final String alias;
   final String uri;
   
-  Nxt$Transaction$MessagingAliasAssignmentAttachment(String paramString1, String paramString2)
+  Nxt$Transaction$MessagingAliasAssignmentAttachment(String alias, String uri)
   {
-    this.alias = paramString1;
-    this.uri = paramString2;
+    this.alias = alias;
+    this.uri = uri;
   }
   
   public int getSize()
@@ -22,7 +23,10 @@ class Nxt$Transaction$MessagingAliasAssignmentAttachment
     {
       return 1 + this.alias.getBytes("UTF-8").length + 2 + this.uri.getBytes("UTF-8").length;
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logMessage("Error in getBytes", e);
+    }
     return 0;
   }
   
@@ -30,34 +34,34 @@ class Nxt$Transaction$MessagingAliasAssignmentAttachment
   {
     try
     {
-      byte[] arrayOfByte1 = this.alias.getBytes("UTF-8");
-      byte[] arrayOfByte2 = this.uri.getBytes("UTF-8");
-      ByteBuffer localByteBuffer = ByteBuffer.allocate(1 + arrayOfByte1.length + 2 + arrayOfByte2.length);
-      localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      localByteBuffer.put((byte)arrayOfByte1.length);
-      localByteBuffer.put(arrayOfByte1);
-      localByteBuffer.putShort((short)arrayOfByte2.length);
-      localByteBuffer.put(arrayOfByte2);
-      return localByteBuffer.array();
+      byte[] alias = this.alias.getBytes("UTF-8");
+      byte[] uri = this.uri.getBytes("UTF-8");
+      
+      ByteBuffer buffer = ByteBuffer.allocate(1 + alias.length + 2 + uri.length);
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+      buffer.put((byte)alias.length);
+      buffer.put(alias);
+      buffer.putShort((short)uri.length);
+      buffer.put(uri);
+      
+      return buffer.array();
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logMessage("Error in getBytes", e);
+    }
     return null;
   }
   
   public JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("alias", this.alias);
-    localJSONObject.put("uri", this.uri);
-    return localJSONObject;
+    JSONObject attachment = new JSONObject();
+    attachment.put("alias", this.alias);
+    attachment.put("uri", this.uri);
+    
+    return attachment;
   }
   
   public long getRecipientDeltaBalance()
   {
     return 0L;
-  }
-  
-  public long getSenderDeltaBalance()
-  {
-    return 0L;
-  }

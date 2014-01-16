@@ -7,19 +7,13 @@ class Nxt$CountingOutputStream
 {
   private long count;
   
-  public Nxt$CountingOutputStream(OutputStream paramOutputStream)
+  public Nxt$CountingOutputStream(OutputStream out)
   {
-    super(paramOutputStream);
+    super(out);
   }
   
-  public void write(int paramInt)
+  public void write(int b)
     throws IOException
   {
     this.count += 1L;
-    super.write(paramInt);
-  }
-  
-  public long getCount()
-  {
-    return this.count;
-  }
+    super.write(b);

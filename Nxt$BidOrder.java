@@ -8,35 +8,29 @@ class Nxt$BidOrder
   volatile int quantity;
   final long price;
   
-  Nxt$BidOrder(long paramLong1, Nxt.Account paramAccount, long paramLong2, int paramInt, long paramLong3)
+  Nxt$BidOrder(long id, Nxt.Account account, long asset, int quantity, long price)
   {
-    this.id = paramLong1;
+    this.id = id;
     this.height = Nxt.Block.getLastBlock().height;
-    this.account = paramAccount;
-    this.asset = paramLong2;
-    this.quantity = paramInt;
-    this.price = paramLong3;
+    this.account = account;
+    this.asset = asset;
+    this.quantity = quantity;
+    this.price = price;
   }
   
-  public int compareTo(BidOrder paramBidOrder)
+  public int compareTo(BidOrder o)
   {
-    if (this.price > paramBidOrder.price) {
+    if (this.price > o.price) {
       return -1;
     }
-    if (this.price < paramBidOrder.price) {
+    if (this.price < o.price) {
       return 1;
     }
-    if (this.height < paramBidOrder.height) {
+    if (this.height < o.height) {
       return -1;
     }
-    if (this.height > paramBidOrder.height) {
+    if (this.height > o.height) {
       return 1;
     }
-    if (this.id < paramBidOrder.id) {
+    if (this.id < o.id) {
       return -1;
-    }
-    if (this.id > paramBidOrder.id) {
-      return 1;
-    }
-    return 0;
-  }

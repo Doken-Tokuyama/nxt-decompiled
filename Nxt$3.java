@@ -1,5 +1,3 @@
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.concurrent.ConcurrentMap;
 
 class Nxt$3
@@ -11,15 +9,16 @@ class Nxt$3
   {
     try
     {
-      long l = System.currentTimeMillis();
-      Iterator localIterator = Nxt.peers.values().iterator();
-      while (localIterator.hasNext())
-      {
-        Nxt.Peer localPeer = (Nxt.Peer)localIterator.next();
-        if ((localPeer.blacklistingTime > 0L) && (localPeer.blacklistingTime + Nxt.blacklistingPeriod <= l)) {
-          localPeer.removeBlacklistedStatus();
+      curTime = System.currentTimeMillis();
+      for (Nxt.Peer peer : Nxt.peers.values()) {
+        if ((peer.blacklistingTime > 0L) && (peer.blacklistingTime + Nxt.blacklistingPeriod <= curTime)) {
+          peer.removeBlacklistedStatus();
         }
       }
     }
-    catch (Exception localException) {}
-  }
+    catch (Exception e)
+    {
+      long curTime;
+      Nxt.logDebugMessage("Error un-blacklisting peer", e);
+    }
+    catch (Throwable t)

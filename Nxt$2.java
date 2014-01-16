@@ -11,11 +11,14 @@ class Nxt$2
     {
       if (Nxt.Peer.getNumberOfConnectedPublicPeers() < Nxt.maxNumberOfConnectedPublicPeers)
       {
-        Nxt.Peer localPeer = Nxt.Peer.getAnyPeer(ThreadLocalRandom.current().nextInt(2) == 0 ? 0 : 2, false);
-        if (localPeer != null) {
-          localPeer.connect();
+        Nxt.Peer peer = Nxt.Peer.getAnyPeer(ThreadLocalRandom.current().nextInt(2) == 0 ? 0 : 2, false);
+        if (peer != null) {
+          peer.connect();
         }
       }
     }
-    catch (Exception localException) {}
-  }
+    catch (Exception e)
+    {
+      Nxt.logDebugMessage("Error connecting to peer", e);
+    }
+    catch (Throwable t)

@@ -1,4 +1,5 @@
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import org.json.simple.JSONObject;
@@ -11,11 +12,11 @@ class Nxt$Transaction$ColoredCoinsAssetIssuanceAttachment
   String description;
   int quantity;
   
-  Nxt$Transaction$ColoredCoinsAssetIssuanceAttachment(String paramString1, String paramString2, int paramInt)
+  Nxt$Transaction$ColoredCoinsAssetIssuanceAttachment(String name, String description, int quantity)
   {
-    this.name = paramString1;
-    this.description = (paramString2 == null ? "" : paramString2);
-    this.quantity = paramInt;
+    this.name = name;
+    this.description = (description == null ? "" : description);
+    this.quantity = quantity;
   }
   
   public int getSize()
@@ -24,7 +25,10 @@ class Nxt$Transaction$ColoredCoinsAssetIssuanceAttachment
     {
       return 1 + this.name.getBytes("UTF-8").length + 2 + this.description.getBytes("UTF-8").length + 4;
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logMessage("Error in getBytes", e);
+    }
     return 0;
   }
   
@@ -32,36 +36,36 @@ class Nxt$Transaction$ColoredCoinsAssetIssuanceAttachment
   {
     try
     {
-      byte[] arrayOfByte1 = this.name.getBytes("UTF-8");
-      byte[] arrayOfByte2 = this.description.getBytes("UTF-8");
-      ByteBuffer localByteBuffer = ByteBuffer.allocate(1 + arrayOfByte1.length + 2 + arrayOfByte2.length + 4);
-      localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      localByteBuffer.put((byte)arrayOfByte1.length);
-      localByteBuffer.put(arrayOfByte1);
-      localByteBuffer.putShort((short)arrayOfByte2.length);
-      localByteBuffer.put(arrayOfByte2);
-      localByteBuffer.putInt(this.quantity);
-      return localByteBuffer.array();
+      byte[] name = this.name.getBytes("UTF-8");
+      byte[] description = this.description.getBytes("UTF-8");
+      
+      ByteBuffer buffer = ByteBuffer.allocate(1 + name.length + 2 + description.length + 4);
+      buffer.order(ByteOrder.LITTLE_ENDIAN);
+      buffer.put((byte)name.length);
+      buffer.put(name);
+      buffer.putShort((short)description.length);
+      buffer.put(description);
+      buffer.putInt(this.quantity);
+      
+      return buffer.array();
     }
-    catch (Exception localException) {}
+    catch (RuntimeException|UnsupportedEncodingException e)
+    {
+      Nxt.logMessage("Error in getBytes", e);
+    }
     return null;
   }
   
   public JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("name", this.name);
-    localJSONObject.put("description", this.description);
-    localJSONObject.put("quantity", Integer.valueOf(this.quantity));
-    return localJSONObject;
+    JSONObject attachment = new JSONObject();
+    attachment.put("name", this.name);
+    attachment.put("description", this.description);
+    attachment.put("quantity", Integer.valueOf(this.quantity));
+    
+    return attachment;
   }
   
   public long getRecipientDeltaBalance()
   {
     return 0L;
-  }
-  
-  public long getSenderDeltaBalance()
-  {
-    return 0L;
-  }

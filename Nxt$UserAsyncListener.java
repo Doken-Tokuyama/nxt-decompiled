@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.Writer;
 import javax.servlet.AsyncContext;
 import javax.servlet.AsyncEvent;
@@ -12,46 +11,45 @@ class Nxt$UserAsyncListener
 {
   final Nxt.User user;
   
-  Nxt$UserAsyncListener(Nxt.User paramUser)
+  Nxt$UserAsyncListener(Nxt.User user)
   {
-    this.user = paramUser;
+    this.user = user;
   }
   
-  public void onComplete(AsyncEvent paramAsyncEvent)
+  public void onComplete(AsyncEvent asyncEvent)
     throws IOException
   {}
   
-  public void onError(AsyncEvent paramAsyncEvent)
+  public void onError(AsyncEvent asyncEvent)
     throws IOException
   {
     synchronized (this.user)
     {
       this.user.asyncContext.getResponse().setContentType("text/plain; charset=UTF-8");
-      PrintWriter localPrintWriter = this.user.asyncContext.getResponse().getWriter();
-      Object localObject1 = null;
+      
+      Writer writer = this.user.asyncContext.getResponse().getWriter();Throwable localThrowable2 = null;
       try
       {
-        new JSONObject().writeJSONString(localPrintWriter);
+        new JSONObject().writeJSONString(writer);
       }
-      catch (Throwable localThrowable2)
+      catch (Throwable localThrowable1)
       {
-        localObject1 = localThrowable2;
-        throw localThrowable2;
+        localThrowable2 = localThrowable1;throw localThrowable1;
       }
       finally
       {
-        if (localPrintWriter != null) {
-          if (localObject1 != null) {
+        if (writer != null) {
+          if (localThrowable2 != null) {
             try
             {
-              localPrintWriter.close();
+              writer.close();
             }
-            catch (Throwable localThrowable3)
+            catch (Throwable x2)
             {
-              localObject1.addSuppressed(localThrowable3);
+              localThrowable2.addSuppressed(x2);
             }
           } else {
-            localPrintWriter.close();
+            writer.close();
           }
         }
       }
@@ -60,45 +58,38 @@ class Nxt$UserAsyncListener
     }
   }
   
-  public void onStartAsync(AsyncEvent paramAsyncEvent)
+  public void onStartAsync(AsyncEvent asyncEvent)
     throws IOException
   {}
   
-  public void onTimeout(AsyncEvent paramAsyncEvent)
+  public void onTimeout(AsyncEvent asyncEvent)
     throws IOException
   {
     synchronized (this.user)
     {
       this.user.asyncContext.getResponse().setContentType("text/plain; charset=UTF-8");
-      PrintWriter localPrintWriter = this.user.asyncContext.getResponse().getWriter();
-      Object localObject1 = null;
+      
+      Writer writer = this.user.asyncContext.getResponse().getWriter();Throwable localThrowable2 = null;
       try
       {
-        new JSONObject().writeJSONString(localPrintWriter);
+        new JSONObject().writeJSONString(writer);
       }
-      catch (Throwable localThrowable2)
+      catch (Throwable localThrowable1)
       {
-        localObject1 = localThrowable2;
-        throw localThrowable2;
+        localThrowable2 = localThrowable1;throw localThrowable1;
       }
       finally
       {
-        if (localPrintWriter != null) {
-          if (localObject1 != null) {
+        if (writer != null) {
+          if (localThrowable2 != null) {
             try
             {
-              localPrintWriter.close();
+              writer.close();
             }
-            catch (Throwable localThrowable3)
+            catch (Throwable x2)
             {
-              localObject1.addSuppressed(localThrowable3);
+              localThrowable2.addSuppressed(x2);
             }
           } else {
-            localPrintWriter.close();
+            writer.close();
           }
-        }
-      }
-      this.user.asyncContext.complete();
-      this.user.asyncContext = null;
-    }
-  }

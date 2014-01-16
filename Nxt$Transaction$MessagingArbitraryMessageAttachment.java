@@ -9,9 +9,9 @@ class Nxt$Transaction$MessagingArbitraryMessageAttachment
   static final long serialVersionUID = 0L;
   final byte[] message;
   
-  Nxt$Transaction$MessagingArbitraryMessageAttachment(byte[] paramArrayOfByte)
+  Nxt$Transaction$MessagingArbitraryMessageAttachment(byte[] message)
   {
-    this.message = paramArrayOfByte;
+    this.message = message;
   }
   
   public int getSize()
@@ -21,31 +21,22 @@ class Nxt$Transaction$MessagingArbitraryMessageAttachment
   
   public byte[] getBytes()
   {
-    try
-    {
-      ByteBuffer localByteBuffer = ByteBuffer.allocate(getSize());
-      localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-      localByteBuffer.putInt(this.message.length);
-      localByteBuffer.put(this.message);
-      return localByteBuffer.array();
-    }
-    catch (Exception localException) {}
-    return null;
+    ByteBuffer buffer = ByteBuffer.allocate(getSize());
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.putInt(this.message.length);
+    buffer.put(this.message);
+    
+    return buffer.array();
   }
   
   public JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("message", Nxt.convert(this.message));
-    return localJSONObject;
+    JSONObject attachment = new JSONObject();
+    attachment.put("message", Nxt.convert(this.message));
+    
+    return attachment;
   }
   
   public long getRecipientDeltaBalance()
   {
     return 0L;
-  }
-  
-  public long getSenderDeltaBalance()
-  {
-    return 0L;
-  }

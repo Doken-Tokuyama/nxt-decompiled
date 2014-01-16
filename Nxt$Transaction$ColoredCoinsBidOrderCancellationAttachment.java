@@ -10,9 +10,9 @@ class Nxt$Transaction$ColoredCoinsBidOrderCancellationAttachment
   static final long serialVersionUID = 0L;
   long order;
   
-  Nxt$Transaction$ColoredCoinsBidOrderCancellationAttachment(long paramLong)
+  Nxt$Transaction$ColoredCoinsBidOrderCancellationAttachment(long order)
   {
-    this.order = paramLong;
+    this.order = order;
   }
   
   public int getSize()
@@ -22,17 +22,19 @@ class Nxt$Transaction$ColoredCoinsBidOrderCancellationAttachment
   
   public byte[] getBytes()
   {
-    ByteBuffer localByteBuffer = ByteBuffer.allocate(getSize());
-    localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-    localByteBuffer.putLong(this.order);
-    return localByteBuffer.array();
+    ByteBuffer buffer = ByteBuffer.allocate(getSize());
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.putLong(this.order);
+    
+    return buffer.array();
   }
   
   public JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("order", Nxt.convert(this.order));
-    return localJSONObject;
+    JSONObject attachment = new JSONObject();
+    attachment.put("order", Nxt.convert(this.order));
+    
+    return attachment;
   }
   
   public long getRecipientDeltaBalance()
@@ -42,9 +44,3 @@ class Nxt$Transaction$ColoredCoinsBidOrderCancellationAttachment
   
   public long getSenderDeltaBalance()
   {
-    Nxt.BidOrder localBidOrder = (Nxt.BidOrder)Nxt.bidOrders.get(Long.valueOf(this.order));
-    if (localBidOrder == null) {
-      return 0L;
-    }
-    return localBidOrder.quantity * localBidOrder.price;
-  }

@@ -1,10 +1,7 @@
 import java.math.BigInteger;
 import java.security.MessageDigest;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.json.simple.JSONObject;
@@ -21,59 +18,59 @@ class Nxt$8
   {
     try
     {
-      HashMap localHashMap = new HashMap();
-      Iterator localIterator = Nxt.users.values().iterator();
-      Object localObject1;
-      Nxt.Account localAccount;
-      while (localIterator.hasNext())
-      {
-        localObject1 = (Nxt.User)localIterator.next();
-        if (((Nxt.User)localObject1).secretPhrase != null)
+      HashMap<Nxt.Account, Nxt.User> unlockedAccounts = new HashMap();
+      for (Nxt.User user : Nxt.users.values()) {
+        if (user.secretPhrase != null)
         {
-          localAccount = (Nxt.Account)Nxt.accounts.get(Long.valueOf(Nxt.Account.getId(Nxt.Crypto.getPublicKey(((Nxt.User)localObject1).secretPhrase))));
-          if ((localAccount != null) && (localAccount.getEffectiveBalance() > 0)) {
-            localHashMap.put(localAccount, localObject1);
+          Nxt.Account account = (Nxt.Account)Nxt.accounts.get(Long.valueOf(Nxt.Account.getId(Nxt.Crypto.getPublicKey(user.secretPhrase))));
+          if ((account != null) && (account.getEffectiveBalance() > 0)) {
+            unlockedAccounts.put(account, user);
           }
         }
       }
-      localIterator = localHashMap.entrySet().iterator();
-      while (localIterator.hasNext())
+      for (Map.Entry<Nxt.Account, Nxt.User> unlockedAccountEntry : unlockedAccounts.entrySet())
       {
-        localObject1 = (Map.Entry)localIterator.next();
-        localAccount = (Nxt.Account)((Map.Entry)localObject1).getKey();
-        Nxt.User localUser = (Nxt.User)((Map.Entry)localObject1).getValue();
-        Nxt.Block localBlock = Nxt.Block.getLastBlock();
-        Object localObject2;
-        if (this.lastBlocks.get(localAccount) != localBlock)
+        Nxt.Account account = (Nxt.Account)unlockedAccountEntry.getKey();
+        Nxt.User user = (Nxt.User)unlockedAccountEntry.getValue();
+        Nxt.Block lastBlock = Nxt.Block.getLastBlock();
+        if (this.lastBlocks.get(account) != lastBlock)
         {
-          MessageDigest localMessageDigest = MessageDigest.getInstance("SHA-256");
-          if (localBlock.height < 30000)
+          MessageDigest digest = Nxt.getMessageDigest("SHA-256");
+          byte[] generationSignatureHash;
+          byte[] generationSignatureHash;
+          if (lastBlock.height < 30000)
           {
-            localObject3 = Nxt.Crypto.sign(localBlock.generationSignature, localUser.secretPhrase);
-            localObject2 = localMessageDigest.digest((byte[])localObject3);
+            byte[] generationSignature = Nxt.Crypto.sign(lastBlock.generationSignature, user.secretPhrase);
+            generationSignatureHash = digest.digest(generationSignature);
           }
           else
           {
-            localMessageDigest.update(localBlock.generationSignature);
-            localObject2 = localMessageDigest.digest(Nxt.Crypto.getPublicKey(localUser.secretPhrase));
+            digest.update(lastBlock.generationSignature);
+            generationSignatureHash = digest.digest(Nxt.Crypto.getPublicKey(user.secretPhrase));
           }
-          Object localObject3 = new BigInteger(1, new byte[] { localObject2[7], localObject2[6], localObject2[5], localObject2[4], localObject2[3], localObject2[2], localObject2[1], localObject2[0] });
-          this.lastBlocks.put(localAccount, localBlock);
-          this.hits.put(localAccount, localObject3);
-          JSONObject localJSONObject = new JSONObject();
-          localJSONObject.put("response", "setBlockGenerationDeadline");
-          localJSONObject.put("deadline", Long.valueOf(((BigInteger)localObject3).divide(BigInteger.valueOf(Nxt.Block.getBaseTarget()).multiply(BigInteger.valueOf(localAccount.getEffectiveBalance()))).longValue() - (Nxt.getEpochTime(System.currentTimeMillis()) - localBlock.timestamp)));
-          localUser.send(localJSONObject);
+          BigInteger hit = new BigInteger(1, new byte[] { generationSignatureHash[7], generationSignatureHash[6], generationSignatureHash[5], generationSignatureHash[4], generationSignatureHash[3], generationSignatureHash[2], generationSignatureHash[1], generationSignatureHash[0] });
+          
+          this.lastBlocks.put(account, lastBlock);
+          this.hits.put(account, hit);
+          
+          JSONObject response = new JSONObject();
+          response.put("response", "setBlockGenerationDeadline");
+          response.put("deadline", Long.valueOf(hit.divide(BigInteger.valueOf(Nxt.Block.getBaseTarget()).multiply(BigInteger.valueOf(account.getEffectiveBalance()))).longValue() - (Nxt.getEpochTime(System.currentTimeMillis()) - lastBlock.timestamp)));
+          
+          user.send(response);
         }
-        int i = Nxt.getEpochTime(System.currentTimeMillis()) - localBlock.timestamp;
-        if (i > 0)
+        int elapsedTime = Nxt.getEpochTime(System.currentTimeMillis()) - lastBlock.timestamp;
+        if (elapsedTime > 0)
         {
-          localObject2 = BigInteger.valueOf(Nxt.Block.getBaseTarget()).multiply(BigInteger.valueOf(localAccount.getEffectiveBalance())).multiply(BigInteger.valueOf(i));
-          if (((BigInteger)this.hits.get(localAccount)).compareTo((BigInteger)localObject2) < 0) {
-            localAccount.generateBlock(localUser.secretPhrase);
+          BigInteger target = BigInteger.valueOf(Nxt.Block.getBaseTarget()).multiply(BigInteger.valueOf(account.getEffectiveBalance())).multiply(BigInteger.valueOf(elapsedTime));
+          if (((BigInteger)this.hits.get(account)).compareTo(target) < 0) {
+            account.generateBlock(user.secretPhrase);
           }
         }
       }
     }
-    catch (Exception localException) {}
-  }
+    catch (Exception e)
+    {
+      Nxt.logDebugMessage("Error in block generation thread", e);
+    }
+    catch (Throwable t)

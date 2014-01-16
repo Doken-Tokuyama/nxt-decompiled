@@ -7,42 +7,36 @@ class Nxt$CountingInputStream
 {
   private long count;
   
-  public Nxt$CountingInputStream(InputStream paramInputStream)
+  public Nxt$CountingInputStream(InputStream in)
   {
-    super(paramInputStream);
+    super(in);
   }
   
   public int read()
     throws IOException
   {
-    int i = super.read();
-    if (i >= 0) {
+    int read = super.read();
+    if (read >= 0) {
       this.count += 1L;
     }
-    return i;
+    return read;
   }
   
-  public int read(byte[] paramArrayOfByte, int paramInt1, int paramInt2)
+  public int read(byte[] b, int off, int len)
     throws IOException
   {
-    int i = super.read(paramArrayOfByte, paramInt1, paramInt2);
-    if (i >= 0) {
+    int read = super.read(b, off, len);
+    if (read >= 0) {
       this.count += 1L;
     }
-    return i;
+    return read;
   }
   
-  public long skip(long paramLong)
+  public long skip(long n)
     throws IOException
   {
-    long l = super.skip(paramLong);
-    if (l >= 0L) {
-      this.count += l;
+    long skipped = super.skip(n);
+    if (skipped >= 0L) {
+      this.count += skipped;
     }
-    return l;
-  }
-  
-  public long getCount()
-  {
-    return this.count;
-  }
+    return skipped;

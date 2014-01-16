@@ -1,19 +1,19 @@
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -51,55 +51,55 @@ class Nxt$Transaction
   int index;
   volatile long block;
   int height;
-  public static final Comparator<Transaction> timestampComparator = new Nxt.Transaction.1();
-  private static final int TRANSACTION_BYTES_LENGTH = 128;
-  volatile transient long id;
-  volatile transient String stringId = null;
-  volatile transient long senderAccountId;
   
-  Nxt$Transaction(byte paramByte1, byte paramByte2, int paramInt1, short paramShort, byte[] paramArrayOfByte1, long paramLong1, int paramInt2, int paramInt3, long paramLong2, byte[] paramArrayOfByte2)
+  Nxt$Transaction(byte type, byte subtype, int timestamp, short deadline, byte[] senderPublicKey, long recipient, int amount, int fee, long referencedTransaction, byte[] signature)
   {
-    this.type = paramByte1;
-    this.subtype = paramByte2;
-    this.timestamp = paramInt1;
-    this.deadline = paramShort;
-    this.senderPublicKey = paramArrayOfByte1;
-    this.recipient = paramLong1;
-    this.amount = paramInt2;
-    this.fee = paramInt3;
-    this.referencedTransaction = paramLong2;
-    this.signature = paramArrayOfByte2;
+    this.type = type;
+    this.subtype = subtype;
+    this.timestamp = timestamp;
+    this.deadline = deadline;
+    this.senderPublicKey = senderPublicKey;
+    this.recipient = recipient;
+    this.amount = amount;
+    this.fee = fee;
+    this.referencedTransaction = referencedTransaction;
+    this.signature = signature;
+    
     this.height = 2147483647;
   }
   
-  public int compareTo(Transaction paramTransaction)
+  public int compareTo(Transaction o)
   {
-    if (this.height < paramTransaction.height) {
+    if (this.height < o.height) {
       return -1;
     }
-    if (this.height > paramTransaction.height) {
+    if (this.height > o.height) {
       return 1;
     }
-    if (this.fee * paramTransaction.getSize() > paramTransaction.fee * getSize()) {
+    if (this.fee * o.getSize() > o.fee * getSize()) {
       return -1;
     }
-    if (this.fee * paramTransaction.getSize() < paramTransaction.fee * getSize()) {
+    if (this.fee * o.getSize() < o.fee * getSize()) {
       return 1;
     }
-    if (this.timestamp < paramTransaction.timestamp) {
+    if (this.timestamp < o.timestamp) {
       return -1;
     }
-    if (this.timestamp > paramTransaction.timestamp) {
+    if (this.timestamp > o.timestamp) {
       return 1;
     }
-    if (this.index < paramTransaction.index) {
+    if (this.index < o.index) {
       return -1;
     }
-    if (this.index > paramTransaction.index) {
+    if (this.index > o.index) {
       return 1;
     }
     return 0;
   }
+  
+  public static final Comparator<Transaction> timestampComparator = new Nxt.Transaction.1();
+  private static final int TRANSACTION_BYTES_LENGTH = 128;
+  volatile transient long id;
   
   int getSize()
   {
@@ -108,23 +108,26 @@ class Nxt$Transaction
   
   byte[] getBytes()
   {
-    ByteBuffer localByteBuffer = ByteBuffer.allocate(getSize());
-    localByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-    localByteBuffer.put(this.type);
-    localByteBuffer.put(this.subtype);
-    localByteBuffer.putInt(this.timestamp);
-    localByteBuffer.putShort(this.deadline);
-    localByteBuffer.put(this.senderPublicKey);
-    localByteBuffer.putLong(this.recipient);
-    localByteBuffer.putInt(this.amount);
-    localByteBuffer.putInt(this.fee);
-    localByteBuffer.putLong(this.referencedTransaction);
-    localByteBuffer.put(this.signature);
+    ByteBuffer buffer = ByteBuffer.allocate(getSize());
+    buffer.order(ByteOrder.LITTLE_ENDIAN);
+    buffer.put(this.type);
+    buffer.put(this.subtype);
+    buffer.putInt(this.timestamp);
+    buffer.putShort(this.deadline);
+    buffer.put(this.senderPublicKey);
+    buffer.putLong(this.recipient);
+    buffer.putInt(this.amount);
+    buffer.putInt(this.fee);
+    buffer.putLong(this.referencedTransaction);
+    buffer.put(this.signature);
     if (this.attachment != null) {
-      localByteBuffer.put(this.attachment.getBytes());
+      buffer.put(this.attachment.getBytes());
     }
-    return localByteBuffer.array();
+    return buffer.array();
   }
+  
+  volatile transient String stringId = null;
+  volatile transient long senderAccountId;
   
   long getId()
   {
@@ -149,38 +152,31 @@ class Nxt$Transaction
     if (this.stringId != null) {
       return;
     }
-    try
-    {
-      byte[] arrayOfByte = MessageDigest.getInstance("SHA-256").digest(getBytes());
-      BigInteger localBigInteger = new BigInteger(1, new byte[] { arrayOfByte[7], arrayOfByte[6], arrayOfByte[5], arrayOfByte[4], arrayOfByte[3], arrayOfByte[2], arrayOfByte[1], arrayOfByte[0] });
-      this.id = localBigInteger.longValue();
-      this.stringId = localBigInteger.toString();
-      this.senderAccountId = Nxt.Account.getId(this.senderPublicKey);
-    }
-    catch (Exception localException)
-    {
-      Nxt.logMessage(localException.getMessage());
-      throw new RuntimeException(localException);
-    }
+    byte[] hash = Nxt.getMessageDigest("SHA-256").digest(getBytes());
+    BigInteger bigInteger = new BigInteger(1, new byte[] { hash[7], hash[6], hash[5], hash[4], hash[3], hash[2], hash[1], hash[0] });
+    this.id = bigInteger.longValue();
+    this.stringId = bigInteger.toString();
+    this.senderAccountId = Nxt.Account.getId(this.senderPublicKey);
   }
   
   JSONObject getJSONObject()
   {
-    JSONObject localJSONObject = new JSONObject();
-    localJSONObject.put("type", Byte.valueOf(this.type));
-    localJSONObject.put("subtype", Byte.valueOf(this.subtype));
-    localJSONObject.put("timestamp", Integer.valueOf(this.timestamp));
-    localJSONObject.put("deadline", Short.valueOf(this.deadline));
-    localJSONObject.put("senderPublicKey", Nxt.convert(this.senderPublicKey));
-    localJSONObject.put("recipient", Nxt.convert(this.recipient));
-    localJSONObject.put("amount", Integer.valueOf(this.amount));
-    localJSONObject.put("fee", Integer.valueOf(this.fee));
-    localJSONObject.put("referencedTransaction", Nxt.convert(this.referencedTransaction));
-    localJSONObject.put("signature", Nxt.convert(this.signature));
+    JSONObject transaction = new JSONObject();
+    
+    transaction.put("type", Byte.valueOf(this.type));
+    transaction.put("subtype", Byte.valueOf(this.subtype));
+    transaction.put("timestamp", Integer.valueOf(this.timestamp));
+    transaction.put("deadline", Short.valueOf(this.deadline));
+    transaction.put("senderPublicKey", Nxt.convert(this.senderPublicKey));
+    transaction.put("recipient", Nxt.convert(this.recipient));
+    transaction.put("amount", Integer.valueOf(this.amount));
+    transaction.put("fee", Integer.valueOf(this.fee));
+    transaction.put("referencedTransaction", Nxt.convert(this.referencedTransaction));
+    transaction.put("signature", Nxt.convert(this.signature));
     if (this.attachment != null) {
-      localJSONObject.put("attachment", this.attachment.getJSONObject());
+      transaction.put("attachment", this.attachment.getJSONObject());
     }
-    return localJSONObject;
+    return transaction;
   }
   
   long getRecipientDeltaBalance()
@@ -193,423 +189,460 @@ class Nxt$Transaction
     return -(this.amount + this.fee) * 100L + (this.attachment == null ? 0L : this.attachment.getSenderDeltaBalance());
   }
   
-  static Transaction getTransaction(ByteBuffer paramByteBuffer)
+  static Transaction getTransaction(ByteBuffer buffer)
   {
-    byte b1 = paramByteBuffer.get();
-    byte b2 = paramByteBuffer.get();
-    int i = paramByteBuffer.getInt();
-    short s = paramByteBuffer.getShort();
-    byte[] arrayOfByte1 = new byte[32];
-    paramByteBuffer.get(arrayOfByte1);
-    long l1 = paramByteBuffer.getLong();
-    int j = paramByteBuffer.getInt();
-    int k = paramByteBuffer.getInt();
-    long l2 = paramByteBuffer.getLong();
-    byte[] arrayOfByte2 = new byte[64];
-    paramByteBuffer.get(arrayOfByte2);
-    Transaction localTransaction = new Transaction(b1, b2, i, s, arrayOfByte1, l1, j, k, l2, arrayOfByte2);
-    int m;
-    byte[] arrayOfByte3;
-    int n;
-    byte[] arrayOfByte4;
-    switch (b1)
+    byte type = buffer.get();
+    byte subtype = buffer.get();
+    int timestamp = buffer.getInt();
+    short deadline = buffer.getShort();
+    byte[] senderPublicKey = new byte[32];
+    buffer.get(senderPublicKey);
+    long recipient = buffer.getLong();
+    int amount = buffer.getInt();
+    int fee = buffer.getInt();
+    long referencedTransaction = buffer.getLong();
+    byte[] signature = new byte[64];
+    buffer.get(signature);
+    
+    Transaction transaction = new Transaction(type, subtype, timestamp, deadline, senderPublicKey, recipient, amount, fee, referencedTransaction, signature);
+    switch (type)
     {
     case 1: 
-      switch (b2)
+      switch (subtype)
       {
       case 0: 
-        m = paramByteBuffer.getInt();
-        if (m <= 1000)
+        int messageLength = buffer.getInt();
+        if (messageLength <= 1000)
         {
-          arrayOfByte3 = new byte[m];
-          paramByteBuffer.get(arrayOfByte3);
-          localTransaction.attachment = new Nxt.Transaction.MessagingArbitraryMessageAttachment(arrayOfByte3);
+          byte[] message = new byte[messageLength];
+          buffer.get(message);
+          
+          transaction.attachment = new Nxt.Transaction.MessagingArbitraryMessageAttachment(message);
         }
         break;
       case 1: 
-        m = paramByteBuffer.get();
-        arrayOfByte3 = new byte[m];
-        paramByteBuffer.get(arrayOfByte3);
-        n = paramByteBuffer.getShort();
-        arrayOfByte4 = new byte[n];
-        paramByteBuffer.get(arrayOfByte4);
+        int aliasLength = buffer.get();
+        byte[] alias = new byte[aliasLength];
+        buffer.get(alias);
+        int uriLength = buffer.getShort();
+        byte[] uri = new byte[uriLength];
+        buffer.get(uri);
         try
         {
-          localTransaction.attachment = new Nxt.Transaction.MessagingAliasAssignmentAttachment(new String(arrayOfByte3, "UTF-8"), new String(arrayOfByte4, "UTF-8"));
+          transaction.attachment = new Nxt.Transaction.MessagingAliasAssignmentAttachment(new String(alias, "UTF-8"), new String(uri, "UTF-8"));
         }
-        catch (Exception localException1) {}
+        catch (RuntimeException|UnsupportedEncodingException e)
+        {
+          Nxt.logDebugMessage("Error parsing alias assignment", e);
+        }
       }
       break;
     case 2: 
-      long l3;
-      long l4;
-      switch (b2)
+      switch (subtype)
       {
       case 0: 
-        m = paramByteBuffer.get();
-        arrayOfByte3 = new byte[m];
-        paramByteBuffer.get(arrayOfByte3);
-        n = paramByteBuffer.getShort();
-        arrayOfByte4 = new byte[n];
-        paramByteBuffer.get(arrayOfByte4);
-        int i1 = paramByteBuffer.getInt();
+        int nameLength = buffer.get();
+        byte[] name = new byte[nameLength];
+        buffer.get(name);
+        int descriptionLength = buffer.getShort();
+        byte[] description = new byte[descriptionLength];
+        buffer.get(description);
+        int quantity = buffer.getInt();
         try
         {
-          localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAssetIssuanceAttachment(new String(arrayOfByte3, "UTF-8"), new String(arrayOfByte4, "UTF-8"), i1);
+          transaction.attachment = new Nxt.Transaction.ColoredCoinsAssetIssuanceAttachment(new String(name, "UTF-8"), new String(description, "UTF-8"), quantity);
         }
-        catch (Exception localException2) {}
+        catch (RuntimeException|UnsupportedEncodingException e)
+        {
+          Nxt.logDebugMessage("Error in asset issuance", e);
+        }
         break;
       case 1: 
-        l3 = paramByteBuffer.getLong();
-        n = paramByteBuffer.getInt();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAssetTransferAttachment(l3, n);
+        long asset = buffer.getLong();
+        int quantity = buffer.getInt();
+        
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAssetTransferAttachment(asset, quantity);
+        
+
         break;
       case 2: 
-        l3 = paramByteBuffer.getLong();
-        n = paramByteBuffer.getInt();
-        l4 = paramByteBuffer.getLong();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment(l3, n, l4);
+        long asset = buffer.getLong();
+        int quantity = buffer.getInt();
+        long price = buffer.getLong();
+        
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment(asset, quantity, price);
+        
+
         break;
       case 3: 
-        l3 = paramByteBuffer.getLong();
-        n = paramByteBuffer.getInt();
-        l4 = paramByteBuffer.getLong();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment(l3, n, l4);
+        long asset = buffer.getLong();
+        int quantity = buffer.getInt();
+        long price = buffer.getLong();
+        
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment(asset, quantity, price);
+        
+
         break;
       case 4: 
-        l3 = paramByteBuffer.getLong();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderCancellationAttachment(l3);
+        long order = buffer.getLong();
+        
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderCancellationAttachment(order);
+        
+
         break;
       case 5: 
-        l3 = paramByteBuffer.getLong();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderCancellationAttachment(l3);
+        long order = buffer.getLong();
+        
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderCancellationAttachment(order);
       }
       break;
     }
-    return localTransaction;
+    return transaction;
   }
   
-  static Transaction getTransaction(JSONObject paramJSONObject)
+  static Transaction getTransaction(JSONObject transactionData)
   {
-    byte b1 = ((Long)paramJSONObject.get("type")).byteValue();
-    byte b2 = ((Long)paramJSONObject.get("subtype")).byteValue();
-    int i = ((Long)paramJSONObject.get("timestamp")).intValue();
-    short s = ((Long)paramJSONObject.get("deadline")).shortValue();
-    byte[] arrayOfByte1 = Nxt.convert((String)paramJSONObject.get("senderPublicKey"));
-    long l1 = Nxt.parseUnsignedLong((String)paramJSONObject.get("recipient"));
-    int j = ((Long)paramJSONObject.get("amount")).intValue();
-    int k = ((Long)paramJSONObject.get("fee")).intValue();
-    long l2 = Nxt.parseUnsignedLong((String)paramJSONObject.get("referencedTransaction"));
-    byte[] arrayOfByte2 = Nxt.convert((String)paramJSONObject.get("signature"));
-    Transaction localTransaction = new Transaction(b1, b2, i, s, arrayOfByte1, l1, j, k, l2, arrayOfByte2);
-    JSONObject localJSONObject = (JSONObject)paramJSONObject.get("attachment");
-    String str1;
-    String str2;
-    switch (b1)
+    byte type = ((Long)transactionData.get("type")).byteValue();
+    byte subtype = ((Long)transactionData.get("subtype")).byteValue();
+    int timestamp = ((Long)transactionData.get("timestamp")).intValue();
+    short deadline = ((Long)transactionData.get("deadline")).shortValue();
+    byte[] senderPublicKey = Nxt.convert((String)transactionData.get("senderPublicKey"));
+    long recipient = Nxt.parseUnsignedLong((String)transactionData.get("recipient"));
+    int amount = ((Long)transactionData.get("amount")).intValue();
+    int fee = ((Long)transactionData.get("fee")).intValue();
+    long referencedTransaction = Nxt.parseUnsignedLong((String)transactionData.get("referencedTransaction"));
+    byte[] signature = Nxt.convert((String)transactionData.get("signature"));
+    
+    Transaction transaction = new Transaction(type, subtype, timestamp, deadline, senderPublicKey, recipient, amount, fee, referencedTransaction, signature);
+    
+    JSONObject attachmentData = (JSONObject)transactionData.get("attachment");
+    switch (type)
     {
     case 1: 
-      switch (b2)
+      switch (subtype)
       {
       case 0: 
-        str1 = (String)localJSONObject.get("message");
-        localTransaction.attachment = new Nxt.Transaction.MessagingArbitraryMessageAttachment(Nxt.convert(str1));
+        String message = (String)attachmentData.get("message");
+        transaction.attachment = new Nxt.Transaction.MessagingArbitraryMessageAttachment(Nxt.convert(message));
+        
+
         break;
       case 1: 
-        str1 = (String)localJSONObject.get("alias");
-        str2 = (String)localJSONObject.get("uri");
-        localTransaction.attachment = new Nxt.Transaction.MessagingAliasAssignmentAttachment(str1.trim(), str2.trim());
+        String alias = (String)attachmentData.get("alias");
+        String uri = (String)attachmentData.get("uri");
+        transaction.attachment = new Nxt.Transaction.MessagingAliasAssignmentAttachment(alias.trim(), uri.trim());
       }
       break;
     case 2: 
-      int m;
-      long l3;
-      long l4;
-      switch (b2)
+      switch (subtype)
       {
       case 0: 
-        str1 = (String)localJSONObject.get("name");
-        str2 = (String)localJSONObject.get("description");
-        m = ((Long)localJSONObject.get("quantity")).intValue();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAssetIssuanceAttachment(str1.trim(), str2.trim(), m);
+        String name = (String)attachmentData.get("name");
+        String description = (String)attachmentData.get("description");
+        int quantity = ((Long)attachmentData.get("quantity")).intValue();
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAssetIssuanceAttachment(name.trim(), description.trim(), quantity);
+        
+
         break;
       case 1: 
-        l3 = Nxt.parseUnsignedLong((String)localJSONObject.get("asset"));
-        m = ((Long)localJSONObject.get("quantity")).intValue();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAssetTransferAttachment(l3, m);
+        long asset = Nxt.parseUnsignedLong((String)attachmentData.get("asset"));
+        int quantity = ((Long)attachmentData.get("quantity")).intValue();
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAssetTransferAttachment(asset, quantity);
+        
+
         break;
       case 2: 
-        l3 = Nxt.parseUnsignedLong((String)localJSONObject.get("asset"));
-        m = ((Long)localJSONObject.get("quantity")).intValue();
-        l4 = ((Long)localJSONObject.get("price")).longValue();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment(l3, m, l4);
+        long asset = Nxt.parseUnsignedLong((String)attachmentData.get("asset"));
+        int quantity = ((Long)attachmentData.get("quantity")).intValue();
+        long price = ((Long)attachmentData.get("price")).longValue();
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment(asset, quantity, price);
+        
+
         break;
       case 3: 
-        l3 = Nxt.parseUnsignedLong((String)localJSONObject.get("asset"));
-        m = ((Long)localJSONObject.get("quantity")).intValue();
-        l4 = ((Long)localJSONObject.get("price")).longValue();
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment(l3, m, l4);
+        long asset = Nxt.parseUnsignedLong((String)attachmentData.get("asset"));
+        int quantity = ((Long)attachmentData.get("quantity")).intValue();
+        long price = ((Long)attachmentData.get("price")).longValue();
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment(asset, quantity, price);
+        
+
         break;
       case 4: 
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderCancellationAttachment(Nxt.parseUnsignedLong((String)localJSONObject.get("order")));
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsAskOrderCancellationAttachment(Nxt.parseUnsignedLong((String)attachmentData.get("order")));
+        
+
         break;
       case 5: 
-        localTransaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderCancellationAttachment(Nxt.parseUnsignedLong((String)localJSONObject.get("order")));
+        transaction.attachment = new Nxt.Transaction.ColoredCoinsBidOrderCancellationAttachment(Nxt.parseUnsignedLong((String)attachmentData.get("order")));
       }
       break;
     }
-    return localTransaction;
+    return transaction;
   }
   
-  static void loadTransactions(String paramString)
-    throws Exception
+  static void loadTransactions(String fileName)
+    throws FileNotFoundException
   {
-    FileInputStream localFileInputStream = new FileInputStream(paramString);
-    Object localObject1 = null;
     try
     {
-      ObjectInputStream localObjectInputStream = new ObjectInputStream(localFileInputStream);
-      Object localObject2 = null;
+      FileInputStream fileInputStream = new FileInputStream(fileName);Throwable localThrowable3 = null;
       try
       {
-        Nxt.transactionCounter.set(localObjectInputStream.readInt());
-        Nxt.transactions.clear();
-        Nxt.transactions.putAll((HashMap)localObjectInputStream.readObject());
+        ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);Throwable localThrowable4 = null;
+        try
+        {
+          Nxt.transactionCounter.set(objectInputStream.readInt());
+          Nxt.transactions.clear();
+          Nxt.transactions.putAll((HashMap)objectInputStream.readObject());
+        }
+        catch (Throwable localThrowable1)
+        {
+          localThrowable4 = localThrowable1;throw localThrowable1;
+        }
+        finally {}
       }
-      catch (Throwable localThrowable4)
+      catch (Throwable localThrowable2)
       {
-        localObject2 = localThrowable4;
-        throw localThrowable4;
+        localThrowable3 = localThrowable2;throw localThrowable2;
       }
-      finally {}
-    }
-    catch (Throwable localThrowable2)
-    {
-      localObject1 = localThrowable2;
-      throw localThrowable2;
-    }
-    finally
-    {
-      if (localFileInputStream != null) {
-        if (localObject1 != null) {
-          try
-          {
-            localFileInputStream.close();
+      finally
+      {
+        if (fileInputStream != null) {
+          if (localThrowable3 != null) {
+            try
+            {
+              fileInputStream.close();
+            }
+            catch (Throwable x2)
+            {
+              localThrowable3.addSuppressed(x2);
+            }
+          } else {
+            fileInputStream.close();
           }
-          catch (Throwable localThrowable6)
-          {
-            localObject1.addSuppressed(localThrowable6);
-          }
-        } else {
-          localFileInputStream.close();
         }
       }
     }
+    catch (FileNotFoundException e)
+    {
+      throw e;
+    }
+    catch (IOException|ClassNotFoundException e)
+    {
+      Nxt.logMessage("Error loading transactions from " + fileName, e);
+      System.exit(1);
+    }
   }
   
-  static void processTransactions(JSONObject paramJSONObject, String paramString)
+  static void processTransactions(JSONObject request, String parameterName)
   {
-    JSONArray localJSONArray1 = (JSONArray)paramJSONObject.get(paramString);
-    JSONArray localJSONArray2 = new JSONArray();
-    Object localObject1 = localJSONArray1.iterator();
-    while (((Iterator)localObject1).hasNext())
+    JSONArray transactionsData = (JSONArray)request.get(parameterName);
+    JSONArray validTransactionsData = new JSONArray();
+    for (Object transactionData : transactionsData)
     {
-      Object localObject2 = ((Iterator)localObject1).next();
-      Transaction localTransaction = getTransaction((JSONObject)localObject2);
+      Transaction transaction = getTransaction((JSONObject)transactionData);
       try
       {
-        int i = Nxt.getEpochTime(System.currentTimeMillis());
-        if ((localTransaction.timestamp > i + 15) || (localTransaction.deadline < 1) || (localTransaction.timestamp + localTransaction.deadline * 60 < i) || (localTransaction.fee <= 0) || (localTransaction.validateAttachment()))
+        int curTime = Nxt.getEpochTime(System.currentTimeMillis());
+        if ((transaction.timestamp > curTime + 15) || (transaction.deadline < 1) || (transaction.timestamp + transaction.deadline * 60 < curTime) || (transaction.fee <= 0) || (transaction.validateAttachment()))
         {
-          long l1;
-          int j;
+          long senderId;
+          boolean doubleSpendingTransaction;
           synchronized (Nxt.blocksAndTransactionsLock)
           {
-            long l2 = localTransaction.getId();
-            if ((Nxt.transactions.get(Long.valueOf(l2)) == null) && (Nxt.unconfirmedTransactions.get(Long.valueOf(l2)) == null) && (Nxt.doubleSpendingTransactions.get(Long.valueOf(l2)) == null) && (!localTransaction.verify())) {
+            long id = transaction.getId();
+            if ((Nxt.transactions.get(Long.valueOf(id)) == null) && (Nxt.unconfirmedTransactions.get(Long.valueOf(id)) == null) && (Nxt.doubleSpendingTransactions.get(Long.valueOf(id)) == null) && (!transaction.verify())) {
               continue;
             }
-            l1 = localTransaction.getSenderAccountId();
-            localObject3 = (Nxt.Account)Nxt.accounts.get(Long.valueOf(l1));
-            if (localObject3 == null)
+            senderId = transaction.getSenderAccountId();
+            Nxt.Account account = (Nxt.Account)Nxt.accounts.get(Long.valueOf(senderId));
+            boolean doubleSpendingTransaction;
+            if (account == null)
             {
-              j = 1;
+              doubleSpendingTransaction = true;
             }
             else
             {
-              int k = localTransaction.amount + localTransaction.fee;
-              synchronized (localObject3)
+              int amount = transaction.amount + transaction.fee;
+              synchronized (account)
               {
-                if (((Nxt.Account)localObject3).getUnconfirmedBalance() < k * 100L)
+                boolean doubleSpendingTransaction;
+                if (account.getUnconfirmedBalance() < amount * 100L)
                 {
-                  j = 1;
+                  doubleSpendingTransaction = true;
                 }
                 else
                 {
-                  j = 0;
-                  ((Nxt.Account)localObject3).addToUnconfirmedBalance(-k * 100L);
-                  if (localTransaction.type == 2)
-                  {
-                    Object localObject4;
-                    Integer localInteger;
-                    if (localTransaction.subtype == 1)
+                  doubleSpendingTransaction = false;
+                  
+                  account.addToUnconfirmedBalance(-amount * 100L);
+                  if (transaction.type == 2) {
+                    if (transaction.subtype == 1)
                     {
-                      localObject4 = (Nxt.Transaction.ColoredCoinsAssetTransferAttachment)localTransaction.attachment;
-                      localInteger = ((Nxt.Account)localObject3).getUnconfirmedAssetBalance(Long.valueOf(((Nxt.Transaction.ColoredCoinsAssetTransferAttachment)localObject4).asset));
-                      if ((localInteger == null) || (localInteger.intValue() < ((Nxt.Transaction.ColoredCoinsAssetTransferAttachment)localObject4).quantity))
+                      Nxt.Transaction.ColoredCoinsAssetTransferAttachment attachment = (Nxt.Transaction.ColoredCoinsAssetTransferAttachment)transaction.attachment;
+                      Integer unconfirmedAssetBalance = account.getUnconfirmedAssetBalance(Long.valueOf(attachment.asset));
+                      if ((unconfirmedAssetBalance == null) || (unconfirmedAssetBalance.intValue() < attachment.quantity))
                       {
-                        j = 1;
-                        ((Nxt.Account)localObject3).addToUnconfirmedBalance(k * 100L);
+                        doubleSpendingTransaction = true;
+                        
+                        account.addToUnconfirmedBalance(amount * 100L);
                       }
                       else
                       {
-                        ((Nxt.Account)localObject3).addToUnconfirmedAssetBalance(Long.valueOf(((Nxt.Transaction.ColoredCoinsAssetTransferAttachment)localObject4).asset), -((Nxt.Transaction.ColoredCoinsAssetTransferAttachment)localObject4).quantity);
+                        account.addToUnconfirmedAssetBalance(Long.valueOf(attachment.asset), -attachment.quantity);
                       }
                     }
-                    else if (localTransaction.subtype == 2)
+                    else if (transaction.subtype == 2)
                     {
-                      localObject4 = (Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment)localTransaction.attachment;
-                      localInteger = ((Nxt.Account)localObject3).getUnconfirmedAssetBalance(Long.valueOf(((Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment)localObject4).asset));
-                      if ((localInteger == null) || (localInteger.intValue() < ((Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment)localObject4).quantity))
+                      Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment attachment = (Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment)transaction.attachment;
+                      Integer unconfirmedAssetBalance = account.getUnconfirmedAssetBalance(Long.valueOf(attachment.asset));
+                      if ((unconfirmedAssetBalance == null) || (unconfirmedAssetBalance.intValue() < attachment.quantity))
                       {
-                        j = 1;
-                        ((Nxt.Account)localObject3).addToUnconfirmedBalance(k * 100L);
+                        doubleSpendingTransaction = true;
+                        
+                        account.addToUnconfirmedBalance(amount * 100L);
                       }
                       else
                       {
-                        ((Nxt.Account)localObject3).addToUnconfirmedAssetBalance(Long.valueOf(((Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment)localObject4).asset), -((Nxt.Transaction.ColoredCoinsAskOrderPlacementAttachment)localObject4).quantity);
+                        account.addToUnconfirmedAssetBalance(Long.valueOf(attachment.asset), -attachment.quantity);
                       }
                     }
-                    else if (localTransaction.subtype == 3)
+                    else if (transaction.subtype == 3)
                     {
-                      localObject4 = (Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment)localTransaction.attachment;
-                      if (((Nxt.Account)localObject3).getUnconfirmedBalance() < ((Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment)localObject4).quantity * ((Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment)localObject4).price)
+                      Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment attachment = (Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment)transaction.attachment;
+                      if (account.getUnconfirmedBalance() < attachment.quantity * attachment.price)
                       {
-                        j = 1;
-                        ((Nxt.Account)localObject3).addToUnconfirmedBalance(k * 100L);
+                        doubleSpendingTransaction = true;
+                        
+                        account.addToUnconfirmedBalance(amount * 100L);
                       }
                       else
                       {
-                        ((Nxt.Account)localObject3).addToUnconfirmedBalance(-((Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment)localObject4).quantity * ((Nxt.Transaction.ColoredCoinsBidOrderPlacementAttachment)localObject4).price);
+                        account.addToUnconfirmedBalance(-attachment.quantity * attachment.price);
                       }
                     }
                   }
                 }
               }
             }
-            localTransaction.index = Nxt.transactionCounter.incrementAndGet();
-            if (j != 0)
+            transaction.index = Nxt.transactionCounter.incrementAndGet();
+            if (doubleSpendingTransaction)
             {
-              Nxt.doubleSpendingTransactions.put(Long.valueOf(localTransaction.getId()), localTransaction);
+              Nxt.doubleSpendingTransactions.put(Long.valueOf(transaction.getId()), transaction);
             }
             else
             {
-              Nxt.unconfirmedTransactions.put(Long.valueOf(localTransaction.getId()), localTransaction);
-              if (paramString.equals("transactions")) {
-                localJSONArray2.add(localObject2);
+              Nxt.unconfirmedTransactions.put(Long.valueOf(transaction.getId()), transaction);
+              if (parameterName.equals("transactions")) {
+                validTransactionsData.add(transactionData);
               }
             }
           }
-          ??? = new JSONObject();
-          ((JSONObject)???).put("response", "processNewData");
-          JSONArray localJSONArray3 = new JSONArray();
-          JSONObject localJSONObject = new JSONObject();
-          localJSONObject.put("index", Integer.valueOf(localTransaction.index));
-          localJSONObject.put("timestamp", Integer.valueOf(localTransaction.timestamp));
-          localJSONObject.put("deadline", Short.valueOf(localTransaction.deadline));
-          localJSONObject.put("recipient", Nxt.convert(localTransaction.recipient));
-          localJSONObject.put("amount", Integer.valueOf(localTransaction.amount));
-          localJSONObject.put("fee", Integer.valueOf(localTransaction.fee));
-          localJSONObject.put("sender", Nxt.convert(l1));
-          localJSONObject.put("id", localTransaction.getStringId());
-          localJSONArray3.add(localJSONObject);
-          if (j != 0) {
-            ((JSONObject)???).put("addedDoubleSpendingTransactions", localJSONArray3);
+          response = new JSONObject();
+          response.put("response", "processNewData");
+          
+          JSONArray newTransactions = new JSONArray();
+          JSONObject newTransaction = new JSONObject();
+          newTransaction.put("index", Integer.valueOf(transaction.index));
+          newTransaction.put("timestamp", Integer.valueOf(transaction.timestamp));
+          newTransaction.put("deadline", Short.valueOf(transaction.deadline));
+          newTransaction.put("recipient", Nxt.convert(transaction.recipient));
+          newTransaction.put("amount", Integer.valueOf(transaction.amount));
+          newTransaction.put("fee", Integer.valueOf(transaction.fee));
+          newTransaction.put("sender", Nxt.convert(senderId));
+          newTransaction.put("id", transaction.getStringId());
+          newTransactions.add(newTransaction);
+          if (doubleSpendingTransaction) {
+            response.put("addedDoubleSpendingTransactions", newTransactions);
           } else {
-            ((JSONObject)???).put("addedUnconfirmedTransactions", localJSONArray3);
+            response.put("addedUnconfirmedTransactions", newTransactions);
           }
-          Object localObject3 = Nxt.users.values().iterator();
-          while (((Iterator)localObject3).hasNext())
-          {
-            Nxt.User localUser = (Nxt.User)((Iterator)localObject3).next();
-            localUser.send((JSONObject)???);
+          for (Nxt.User user : Nxt.users.values()) {
+            user.send(response);
           }
         }
       }
-      catch (Exception localException)
+      catch (RuntimeException e)
       {
-        Nxt.logMessage("15: " + localException.toString());
+        JSONObject response;
+        Nxt.logMessage("Error processing transaction", e);
       }
     }
-    if (localJSONArray2.size() > 0)
+    if (validTransactionsData.size() > 0)
     {
-      localObject1 = new JSONObject();
-      ((JSONObject)localObject1).put("requestType", "processTransactions");
-      ((JSONObject)localObject1).put("transactions", localJSONArray2);
-      Nxt.Peer.sendToAllPeers((JSONObject)localObject1);
+      JSONObject peerRequest = new JSONObject();
+      peerRequest.put("requestType", "processTransactions");
+      peerRequest.put("transactions", validTransactionsData);
+      
+      Nxt.Peer.sendToSomePeers(peerRequest);
     }
   }
   
-  static void saveTransactions(String paramString)
-    throws Exception
+  static void saveTransactions(String fileName)
   {
-    FileOutputStream localFileOutputStream = new FileOutputStream(paramString);
-    Object localObject1 = null;
     try
     {
-      ObjectOutputStream localObjectOutputStream = new ObjectOutputStream(localFileOutputStream);
-      Object localObject2 = null;
+      FileOutputStream fileOutputStream = new FileOutputStream(fileName);Throwable localThrowable3 = null;
       try
       {
-        localObjectOutputStream.writeInt(Nxt.transactionCounter.get());
-        localObjectOutputStream.writeObject(new HashMap(Nxt.transactions));
-        localObjectOutputStream.close();
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);Throwable localThrowable4 = null;
+        try
+        {
+          objectOutputStream.writeInt(Nxt.transactionCounter.get());
+          objectOutputStream.writeObject(new HashMap(Nxt.transactions));
+          objectOutputStream.close();
+        }
+        catch (Throwable localThrowable1)
+        {
+          localThrowable4 = localThrowable1;throw localThrowable1;
+        }
+        finally {}
       }
-      catch (Throwable localThrowable4)
+      catch (Throwable localThrowable2)
       {
-        localObject2 = localThrowable4;
-        throw localThrowable4;
+        localThrowable3 = localThrowable2;throw localThrowable2;
       }
-      finally {}
-    }
-    catch (Throwable localThrowable2)
-    {
-      localObject1 = localThrowable2;
-      throw localThrowable2;
-    }
-    finally
-    {
-      if (localFileOutputStream != null) {
-        if (localObject1 != null) {
-          try
-          {
-            localFileOutputStream.close();
+      finally
+      {
+        if (fileOutputStream != null) {
+          if (localThrowable3 != null) {
+            try
+            {
+              fileOutputStream.close();
+            }
+            catch (Throwable x2)
+            {
+              localThrowable3.addSuppressed(x2);
+            }
+          } else {
+            fileOutputStream.close();
           }
-          catch (Throwable localThrowable6)
-          {
-            localObject1.addSuppressed(localThrowable6);
-          }
-        } else {
-          localFileOutputStream.close();
         }
       }
     }
+    catch (IOException e)
+    {
+      Nxt.logMessage("Error saving transactions to " + fileName, e);
+      throw new RuntimeException(e);
+    }
   }
   
-  void sign(String paramString)
+  void sign(String secretPhrase)
   {
-    this.signature = Nxt.Crypto.sign(getBytes(), paramString);
+    this.signature = Nxt.Crypto.sign(getBytes(), secretPhrase);
     try
     {
       while (!verify())
       {
         this.timestamp += 1;
+        
         this.signature = new byte[64];
-        this.signature = Nxt.Crypto.sign(getBytes(), paramString);
+        this.signature = Nxt.Crypto.sign(getBytes(), secretPhrase);
       }
     }
-    catch (Exception localException)
+    catch (RuntimeException e)
     {
-      Nxt.logMessage("16: " + localException.toString());
+      Nxt.logMessage("Error signing transaction", e);
     }
   }
   
@@ -624,7 +657,10 @@ class Nxt$Transaction
       switch (this.subtype)
       {
       case 0: 
-        return (this.amount > 0) && (this.amount <= 1000000000L);
+        if ((this.amount <= 0) || (this.amount > 1000000000L)) {
+          return false;
+        }
+        return true;
       }
       return false;
     case 1: 
@@ -636,11 +672,12 @@ class Nxt$Transaction
         }
         try
         {
-          Nxt.Transaction.MessagingArbitraryMessageAttachment localMessagingArbitraryMessageAttachment = (Nxt.Transaction.MessagingArbitraryMessageAttachment)this.attachment;
-          return (this.amount == 0) && (localMessagingArbitraryMessageAttachment.message.length <= 1000);
+          Nxt.Transaction.MessagingArbitraryMessageAttachment attachment = (Nxt.Transaction.MessagingArbitraryMessageAttachment)this.attachment;
+          return (this.amount == 0) && (attachment.message.length <= 1000);
         }
-        catch (Exception localException1)
+        catch (RuntimeException e)
         {
+          Nxt.logDebugMessage("Error validating arbitrary message", e);
           return false;
         }
       case 1: 
@@ -649,21 +686,23 @@ class Nxt$Transaction
         }
         try
         {
-          Nxt.Transaction.MessagingAliasAssignmentAttachment localMessagingAliasAssignmentAttachment = (Nxt.Transaction.MessagingAliasAssignmentAttachment)this.attachment;
-          if ((this.recipient != 1739068987193023818L) || (this.amount != 0) || (localMessagingAliasAssignmentAttachment.alias.length() == 0) || (localMessagingAliasAssignmentAttachment.alias.length() > 100) || (localMessagingAliasAssignmentAttachment.uri.length() > 1000)) {
+          Nxt.Transaction.MessagingAliasAssignmentAttachment attachment = (Nxt.Transaction.MessagingAliasAssignmentAttachment)this.attachment;
+          if ((this.recipient != 1739068987193023818L) || (this.amount != 0) || (attachment.alias.length() == 0) || (attachment.alias.length() > 100) || (attachment.uri.length() > 1000)) {
             return false;
           }
-          String str = localMessagingAliasAssignmentAttachment.alias.toLowerCase();
-          for (int i = 0; i < str.length(); i++) {
-            if ("0123456789abcdefghijklmnopqrstuvwxyz".indexOf(str.charAt(i)) < 0) {
+          String normalizedAlias = attachment.alias.toLowerCase();
+          for (int i = 0; i < normalizedAlias.length(); i++) {
+            if ("0123456789abcdefghijklmnopqrstuvwxyz".indexOf(normalizedAlias.charAt(i)) < 0) {
               return false;
             }
           }
-          Nxt.Alias localAlias = (Nxt.Alias)Nxt.aliases.get(str);
-          return (localAlias == null) || (Arrays.equals((byte[])localAlias.account.publicKey.get(), this.senderPublicKey));
+          Nxt.Alias alias = (Nxt.Alias)Nxt.aliases.get(normalizedAlias);
+          
+          return (alias == null) || (Arrays.equals((byte[])alias.account.publicKey.get(), this.senderPublicKey));
         }
-        catch (Exception localException2)
+        catch (RuntimeException e)
         {
+          Nxt.logDebugMessage("Error validation alias assignment", e);
           return false;
         }
       }
@@ -673,33 +712,29 @@ class Nxt$Transaction
   }
   
   boolean verify()
-    throws Exception
   {
-    Nxt.Account localAccount = (Nxt.Account)Nxt.accounts.get(Long.valueOf(getSenderAccountId()));
-    if (localAccount == null) {
+    Nxt.Account account = (Nxt.Account)Nxt.accounts.get(Long.valueOf(getSenderAccountId()));
+    if (account == null) {
       return false;
     }
-    byte[] arrayOfByte = getBytes();
+    byte[] data = getBytes();
     for (int i = 64; i < 128; i++) {
-      arrayOfByte[i] = 0;
+      data[i] = 0;
     }
-    return (Nxt.Crypto.verify(this.signature, arrayOfByte, this.senderPublicKey)) && (localAccount.setOrVerify(this.senderPublicKey));
+    return (Nxt.Crypto.verify(this.signature, data, this.senderPublicKey)) && (account.setOrVerify(this.senderPublicKey));
   }
   
   public static byte[] calculateTransactionsChecksum()
-    throws Exception
   {
     synchronized (Nxt.blocksAndTransactionsLock)
     {
-      TreeSet localTreeSet = new TreeSet(new Nxt.Transaction.2());
-      localTreeSet.addAll(Nxt.transactions.values());
-      MessageDigest localMessageDigest = MessageDigest.getInstance("SHA-256");
-      Iterator localIterator = localTreeSet.iterator();
-      while (localIterator.hasNext())
-      {
-        Transaction localTransaction = (Transaction)localIterator.next();
-        localMessageDigest.update(localTransaction.getBytes());
-      }
-      return localMessageDigest.digest();
-    }
-  }
+      PriorityQueue<Transaction> sortedTransactions = new PriorityQueue(Nxt.transactions.size(), new Nxt.Transaction.2());
+      
+
+
+
+
+
+
+      sortedTransactions.addAll(Nxt.transactions.values());
+      MessageDigest digest = Nxt.getMessageDigest("SHA-256");

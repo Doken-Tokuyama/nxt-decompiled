@@ -1,4 +1,4 @@
-import java.io.PrintWriter;
+import java.io.IOException;
 import java.io.Writer;
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -12,25 +12,29 @@ import org.json.simple.JSONObject;
 
 class Nxt$User
 {
-  final ConcurrentLinkedQueue<JSONObject> pendingResponses = new ConcurrentLinkedQueue();
+  final ConcurrentLinkedQueue<JSONObject> pendingResponses;
   AsyncContext asyncContext;
   volatile boolean isInactive;
   volatile String secretPhrase;
+  
+  Nxt$User()
+  {
+    this.pendingResponses = new ConcurrentLinkedQueue();
+  }
   
   void deinitializeKeyPair()
   {
     this.secretPhrase = null;
   }
   
-  BigInteger initializeKeyPair(String paramString)
-    throws Exception
+  BigInteger initializeKeyPair(String secretPhrase)
   {
-    this.secretPhrase = paramString;
-    byte[] arrayOfByte = MessageDigest.getInstance("SHA-256").digest(Nxt.Crypto.getPublicKey(paramString));
-    return new BigInteger(1, new byte[] { arrayOfByte[7], arrayOfByte[6], arrayOfByte[5], arrayOfByte[4], arrayOfByte[3], arrayOfByte[2], arrayOfByte[1], arrayOfByte[0] });
+    this.secretPhrase = secretPhrase;
+    byte[] publicKeyHash = Nxt.getMessageDigest("SHA-256").digest(Nxt.Crypto.getPublicKey(secretPhrase));
+    return new BigInteger(1, new byte[] { publicKeyHash[7], publicKeyHash[6], publicKeyHash[5], publicKeyHash[4], publicKeyHash[3], publicKeyHash[2], publicKeyHash[1], publicKeyHash[0] });
   }
   
-  void send(JSONObject paramJSONObject)
+  void send(JSONObject response)
   {
     synchronized (this)
     {
@@ -42,62 +46,57 @@ class Nxt$User
         if (this.pendingResponses.size() > 1000)
         {
           this.pendingResponses.clear();
+          
           this.isInactive = true;
           if (this.secretPhrase == null) {
             Nxt.users.values().remove(this);
           }
           return;
         }
-        this.pendingResponses.offer(paramJSONObject);
+        this.pendingResponses.offer(response);
       }
       else
       {
-        JSONArray localJSONArray = new JSONArray();
-        JSONObject localJSONObject1;
-        while ((localJSONObject1 = (JSONObject)this.pendingResponses.poll()) != null) {
-          localJSONArray.add(localJSONObject1);
+        JSONArray responses = new JSONArray();
+        JSONObject pendingResponse;
+        while ((pendingResponse = (JSONObject)this.pendingResponses.poll()) != null) {
+          responses.add(pendingResponse);
         }
-        localJSONArray.add(paramJSONObject);
-        JSONObject localJSONObject2 = new JSONObject();
-        localJSONObject2.put("responses", localJSONArray);
+        responses.add(response);
+        
+        JSONObject combinedResponse = new JSONObject();
+        combinedResponse.put("responses", responses);
+        
+        this.asyncContext.getResponse().setContentType("text/plain; charset=UTF-8");
         try
         {
-          this.asyncContext.getResponse().setContentType("text/plain; charset=UTF-8");
-          PrintWriter localPrintWriter = this.asyncContext.getResponse().getWriter();
-          Object localObject1 = null;
+          Writer writer = this.asyncContext.getResponse().getWriter();Throwable localThrowable2 = null;
           try
           {
-            localJSONObject2.writeJSONString(localPrintWriter);
+            combinedResponse.writeJSONString(writer);
           }
-          catch (Throwable localThrowable2)
+          catch (Throwable localThrowable1)
           {
-            localObject1 = localThrowable2;
-            throw localThrowable2;
+            localThrowable2 = localThrowable1;throw localThrowable1;
           }
           finally
           {
-            if (localPrintWriter != null) {
-              if (localObject1 != null) {
+            if (writer != null) {
+              if (localThrowable2 != null) {
                 try
                 {
-                  localPrintWriter.close();
+                  writer.close();
                 }
-                catch (Throwable localThrowable3)
+                catch (Throwable x2)
                 {
-                  localObject1.addSuppressed(localThrowable3);
+                  localThrowable2.addSuppressed(x2);
                 }
               } else {
-                localPrintWriter.close();
+                writer.close();
               }
             }
           }
-          this.asyncContext.complete();
-          this.asyncContext = null;
         }
-        catch (Exception localException)
+        catch (IOException e)
         {
-          Nxt.logMessage("17: " + localException.toString());
-        }
-      }
-    }
-  }
+          Nxt.logMessage("Error sending response to user", e);
